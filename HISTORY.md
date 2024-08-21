@@ -1,6 +1,9 @@
 
 # Release history
 
+### PapertLab v1.0.7
+- File and Folder permission issue fixed
+
 ### PapertLab v1.0.6
 - Minor UI bugs fixed
 
