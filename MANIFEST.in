@@ -1,0 +1,4 @@
+include requirements.txt
+recursive-include papertlab/static *
+recursive-include papertlab/templates *
+include papertlab/queries/*.scm

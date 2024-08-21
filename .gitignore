@@ -18,3 +18,8 @@ venv/
 *.log
 .flask_session/
 papert_lab.egg-info
+directory_structure.md
+create_directory_structure.py
+.papertlab*
+dist/
+*db

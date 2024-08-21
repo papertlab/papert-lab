@@ -1,6 +1,12 @@
 
 # Release history
 
+### PapertLab v1.0.6
+- Minor UI bugs fixed
+
+### PapertLab v1.0.5
+- Autopilot Mode added
+
 ### PapertLab v1.0.4
 - CodeMirror modal UI issue fixed
 - .papertlabignore file and functionality added

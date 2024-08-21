@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>papert-lab</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+
+    <script src="/static\vendor\js\react\react.production.min.js"></script>
+    <script src="/static\vendor\js\react\react-dom.production.min.js"></script>
+    <script src="/static\vendor\js\babel\babel.min.js"></script>
+    <script src="/static\vendor\js\tailwindcss\tailwindcss.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static\vendor\css\codemirror\codemirror.min.css">
+    <link rel="stylesheet" href="/static\vendor\css\codemirror\monokai.min.css">
+
+    <script src="/static\vendor\js\codemirror/codemirror.min.js"></script>
+    <script src="/static\vendor\js\codemirror/javascript.min.js"></script>
+    <script src="/static\vendor\js\codemirror\python.min.js"></script>
+    <script src="/static\vendor\js\codemirror/htmlmixed.min.js"></script>
+    <script src="/static\vendor\js\codemirror/xml.min.js"></script>
+    <script src="/static\vendor\js\codemirror/css.min.js"></script>
+    
+    <style>
+      .CodeMirror {
+        height: auto;
+        max-height: 500px;
+      }
+      .command-dropdown {
+        position: relative;
+        display: inline-block;
+      }
+      .command-dropdown-content {
+        position: absolute;
+        background-color: #1a202c;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 1000;
+        bottom: 100%;
+        left: 0;
+        border-top-left-radius: 0.25rem;
+        border-top-right-radius: 0.25rem;
+      }
+      .command-dropdown-content a {
+        color: #4fd1c5;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+      }
+      .command-dropdown-content a:hover {
+        background-color: #2d3748;
+      }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel" src="/static/app.js"></script>
+</body>
+</html>
