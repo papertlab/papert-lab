@@ -1546,31 +1546,19 @@ class Coder:
             return True
 
         if not Path(full_path).exists():
-            if not self.io.confirm_ask(f"Allow creation of new file {path}?"):
-                self.io.tool_error(f"Skipping edits to {path}")
-                return
+            # Create the file without asking for permission
+            Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(full_path).touch()
 
-            if not self.dry_run:
-                Path(full_path).parent.mkdir(parents=True, exist_ok=True)
-                Path(full_path).touch()
-
-                # Seems unlikely that we needed to create the file, but it was
-                # actually already part of the repo.
-                # But let's only add if we need to, just to be safe.
-                if need_to_add:
-                    self.repo.repo.git.add(full_path)
+            if need_to_add and self.repo:
+                self.repo.repo.git.add(full_path)
 
             self.abs_fnames.add(full_path)
             self.check_added_files()
             return True
 
-        if not self.io.confirm_ask(
-            f"Allow edits to {path} which was not previously added to chat?"
-        ):
-            self.io.tool_error(f"Skipping edits to {path}")
-            return
-
-        if need_to_add:
+        # Add the file to editable files without asking for permission
+        if need_to_add and self.repo:
             self.repo.repo.git.add(full_path)
 
         self.abs_fnames.add(full_path)
