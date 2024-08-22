@@ -4,6 +4,8 @@
 
 Papertlab is your AI-powered pair programmer that lets you seamlessly collaborate with Large Language Models (LLMs) to edit code in your local Git repository or any other codebases. Whether you're starting a new project or working with an existing Git repository, Papertlab is here to help. It works best with Claude 3.5 Sonnet and GPT-4o.
 
+Documentation : [Papert Documentation](https://papert-in.gitbook.io/papert.in).
+
 ## Features
 
 - **Run Papertlab with the files you want to edit:** Select specific files to focus on during your coding session.
