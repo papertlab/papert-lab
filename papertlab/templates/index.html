@@ -9,11 +9,17 @@
     <script src="/static\vendor\js\react\react.production.min.js"></script>
     <script src="/static\vendor\js\react\react-dom.production.min.js"></script>
     <script src="/static\vendor\js\babel\babel.min.js"></script>
+
     <script src="/static\vendor\js\tailwindcss\tailwindcss.js"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <link rel="stylesheet" href="/static\vendor\css\codemirror\codemirror.min.css">
     <link rel="stylesheet" href="/static\vendor\css\codemirror\monokai.min.css">
+    <link rel="stylesheet" href="/static\vendor\css\codemirror/addon/foldgutter.min.css">
+    <link rel="stylesheet" href="/static\vendor\css\codemirror/addon/dialog.min.css">
+    <link rel="stylesheet" href="/static\vendor\css\codemirror/addon/matchesonscrollbar.min.css">
+
 
     <script src="/static\vendor\js\codemirror/codemirror.min.js"></script>
     <script src="/static\vendor\js\codemirror/javascript.min.js"></script>
@@ -21,12 +27,33 @@
     <script src="/static\vendor\js\codemirror/htmlmixed.min.js"></script>
     <script src="/static\vendor\js\codemirror/xml.min.js"></script>
     <script src="/static\vendor\js\codemirror/css.min.js"></script>
+
+    <!-- CodeMirror Addons -->
+    <script src="/static\vendor\js\codemirror/addon/closebrackets.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/matchbrackets.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/foldcode.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/foldgutter.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/brace-fold.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/indent-fold.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/search.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/searchcursor.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/jump-to-line.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/dialog.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/comment.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/lint.min.js"></script>
+    <script src="/static\vendor\js\codemirror/addon/active-line.min.js"></script>
+
     
     <style>
       .CodeMirror {
-        height: auto;
-        max-height: 500px;
-      }
+        height: 100% !important;
+        width: 100% !important;
+        font-size: 14px;
+    }
+
+    .react-codemirror2 {
+        height: 100%;
+    }
       .command-dropdown {
         position: relative;
         display: inline-block;
@@ -55,6 +82,7 @@
 </head>
 <body>
     <div id="root"></div>
+    <script type="text/babel" src="/static/editor.js"></script>
     <script type="text/babel" src="/static/app.js"></script>
 </body>
 </html>

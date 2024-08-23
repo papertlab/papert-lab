@@ -41,6 +41,7 @@ setup(
             "static/**/*",
             "static/**/**/*",
             "static/**/**/**/*",
+            "static/**/**/**/**/*",
             "templates/*",
         ],
     },

@@ -1,4 +1,6 @@
 
+
+
 const getTextColor = (role) => {
     switch (role) {
         case 'assistant':
@@ -280,7 +282,7 @@ const App = () => {
                     theme: 'monokai',
                     readOnly: false,
                     viewportMargin: Infinity,
-                    height: "100%"
+                    height: "100"
                 });
                 editor.setValue(fileContent);
                 editor.refresh();
@@ -452,13 +454,14 @@ const App = () => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            setFileContent(data.content);
+            setFileContent(data.content || ''); // Ensure it's never undefined
             setSelectedFile(filePath);
         } catch (error) {
             console.error('Error fetching file content:', error);
             setFileContent(`Error loading file content: ${error.message}`);
         }
     };
+
 
     const closeUnsupportedFileModal = () => {
         setUnsupportedFile(null);
@@ -481,6 +484,27 @@ const App = () => {
             }
         }
         setSelectedFile(null);
+    };
+
+    const handleEditorClose = async () => {
+        setSelectedFile(null);
+    };
+
+    const handleEditorSave = async (content) => {
+        try {
+            const response = await fetch('/api/update_file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file: selectedFile, content: content }),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            console.log(data.message);
+            // Optionally, you can update the file tree or show a success message here
+        } catch (error) {
+            console.error('Error saving file:', error);
+            // Optionally, show an error message to the user
+        }
     };
 
     const handleFileSelect = (filePath) => {
@@ -725,26 +749,12 @@ const App = () => {
             
                     {/* File Editor Modal */}
                     {selectedFile && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-gray-800 p-5 rounded-lg w-full max-w-4xl h-5/6 flex flex-col relative">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-bold">{selectedFile}</h2>
-                                    <button
-                                        onClick={handleModalClose}
-                                        className="bg-red-500 text-white px-2 py-1 rounded"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                                <div className="flex-grow overflow-hidden bg-gray-900 rounded relative">
-                                    <textarea 
-                                        ref={editorRef} 
-                                        defaultValue={fileContent}  
-                                        className="w-full h-full bg-gray-900 text-green-400 font-mono resize-none focus:outline-none p-2 absolute inset-0"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                        <Editor
+                            file={selectedFile}
+                            content={fileContent}
+                            onClose={handleEditorClose}
+                            onSave={handleEditorSave}
+                        />
                     )}
                 </>
             )}
