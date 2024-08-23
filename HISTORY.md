@@ -1,6 +1,16 @@
 
 # Release history
 
+### PapertLab v1.0.8
+- File Editor updated with 
+    - Syntax Highlighting
+    - Auto-Closing Brackets
+    - Code Folding
+    - Search and Replace
+    - Multiple Cursors
+    - Comment Toggling
+    - Indentation
+
 ### PapertLab v1.0.7
 - File and Folder permission issue fixed
 
