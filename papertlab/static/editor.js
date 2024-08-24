@@ -4,6 +4,7 @@ window.Editor = ({ file, content, onClose, onSave }) => {
     const [editorInstance, setEditorInstance] = React.useState(null);
     const [showChangeModal, setShowChangeModal] = React.useState(false);
     const [proposedChanges, setProposedChanges] = React.useState('');
+    const [isLoading, setIsLoading] = React.useState(false);
     const [selectedCode, setSelectedCode] = React.useState('');
     const [selectedRange, setSelectedRange] = React.useState(null);
 
@@ -88,7 +89,7 @@ window.Editor = ({ file, content, onClose, onSave }) => {
     };
 
     React.useEffect(() => {
-        if (showChangeModal && changeEditorRef.current) {
+        if (showChangeModal && changeEditorRef.current && !isLoading) {
             const changeEditor = CodeMirror.fromTextArea(changeEditorRef.current, {
                 lineNumbers: true,
                 mode: getLanguageMode(file),
@@ -104,9 +105,11 @@ window.Editor = ({ file, content, onClose, onSave }) => {
                 changeEditor.toTextArea();
             };
         }
-    }, [showChangeModal, proposedChanges, file]);
+    }, [showChangeModal, proposedChanges, file, isLoading]);
 
     const handleInlineEdit = async (selectedCode, inlineEditContent) => {
+        setIsLoading(true);
+        setShowChangeModal(true);
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -149,12 +152,13 @@ window.Editor = ({ file, content, onClose, onSave }) => {
 
             if (updatedCode) {
                 setProposedChanges(updatedCode);
-                setShowChangeModal(true);
             } else {
                 console.log('No updated code received');
             }
         } catch (error) {
             console.error('Error during inline edit:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -193,14 +197,24 @@ window.Editor = ({ file, content, onClose, onSave }) => {
             <div className="bg-gray-800 p-4 rounded-lg w-1/2 h-2/3 flex flex-col">
                 <h2 className="text-xl font-bold mb-4">Proposed Changes</h2>
                 <div className="flex-grow overflow-hidden mb-4 relative">
+                {isLoading ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-green-400"></div>
+                        </div>
+                    ) : (
                     <div className="absolute inset-0 overflow-auto">
                         <textarea ref={changeEditorRef} defaultValue={proposedChanges} className="h-full w-full" />
                     </div>
+                    )}
                 </div>
+                {isLoading ? (
+                    <div className="flex justify-end"></div>
+                ) : (
                 <div className="flex justify-end">
                     <button
                         onClick={applyChanges}
                         className="bg-green-500 text-white px-4 py-2 rounded mr-2 hover:bg-green-600"
+                        disabled={isLoading}
                     >
                         Accept
                     </button>
@@ -211,6 +225,7 @@ window.Editor = ({ file, content, onClose, onSave }) => {
                         Reject
                     </button>
                 </div>
+                )}
             </div>
         </div>
     );
