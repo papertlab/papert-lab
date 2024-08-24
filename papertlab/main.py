@@ -443,7 +443,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     register_litellm_models(git_root, args.model_metadata_file, io, verbose=args.verbose)
 
     if not args.model:
-        args.model = "gpt-4o"
+        args.model = "gpt-4o-2024-08-06"
         if os.environ.get("ANTHROPIC_API_KEY"):
             args.model = "claude-3-5-sonnet-20240620"
 
@@ -480,6 +480,9 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         args.max_chat_history_tokens or main_model.max_chat_history_tokens,
     )
 
+    if args.cache_prompts and args.map_refresh == "auto":
+        args.map_refresh = "files"
+
     try:
         coder = Coder.create(
             main_model=main_model,
@@ -505,6 +508,9 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             test_cmd=args.test_cmd,
             commands=commands,
             summarizer=summarizer,
+            map_refresh=args.map_refresh,
+            cache_prompts=args.cache_prompts,
+            map_mul_no_files=args.map_multiplier_no_files,
         )
 
     except ValueError as err:
@@ -514,6 +520,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if return_coder:
         return coder
 
+    io.tool_output()
     coder.show_announcements()
 
     if args.show_prompts:
@@ -576,7 +583,10 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if args.message:
         io.add_to_input_history(args.message)
         io.tool_output()
-        coder.run(with_message=args.message)
+        try:
+            coder.run(with_message=args.message)
+        except SwitchCoder:
+            pass
         return
 
     if args.message_file:

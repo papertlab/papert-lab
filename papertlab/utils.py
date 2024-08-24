@@ -15,7 +15,10 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp"}
 
 class IgnorantTemporaryDirectory:
     def __init__(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
+        if sys.version_info >= (3, 10):
+            self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        else:
+            self.temp_dir = tempfile.TemporaryDirectory()
 
     def __enter__(self):
         return self.temp_dir.__enter__()
@@ -26,8 +29,8 @@ class IgnorantTemporaryDirectory:
     def cleanup(self):
         try:
             self.temp_dir.cleanup()
-        except (OSError, PermissionError):
-            pass  # Ignore errors (Windows)
+        except (OSError, PermissionError, RecursionError):
+            pass  # Ignore errors (Windows and potential recursion)
 
     def __getattr__(self, item):
         return getattr(self.temp_dir, item)
@@ -267,6 +270,14 @@ class Spinner:
         if self.visible:
             print("\r" + " " * (len(self.text) + 3))
 
+def find_common_root(abs_fnames):
+    if len(abs_fnames) == 1:
+        return safe_abs_path(os.path.dirname(list(abs_fnames)[0]))
+    elif abs_fnames:
+        return safe_abs_path(os.path.commonpath(list(abs_fnames)))
+    else:
+        return safe_abs_path(os.getcwd())
+
 def check_pip_install_extra(io, module, prompt, pip_install_cmd):
     try:
         __import__(module)
@@ -276,10 +287,9 @@ def check_pip_install_extra(io, module, prompt, pip_install_cmd):
 
     cmd = get_pip_install(pip_install_cmd)
 
-    text = f"{prompt}:\n\n{' '.join(cmd)}\n"
-    io.tool_error(text)
-
-    if not io.confirm_ask("Run pip install?", default="y"):
+    io.tool_error(prompt)
+    if not io.confirm_ask("Run pip install?", default="y", subject=" ".join(cmd)):
+        return
         return
 
     success, output = run_install(cmd)

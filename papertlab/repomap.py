@@ -3,6 +3,7 @@ import math
 import os
 import random
 import sys
+import time
 import warnings
 from collections import Counter, defaultdict, namedtuple
 from importlib import resources
@@ -42,9 +43,11 @@ class RepoMap:
         verbose=False,
         max_context_window=None,
         map_mul_no_files=8,
+        refresh="auto",
     ):
         self.io = io
         self.verbose = verbose
+        self.refresh = refresh
 
         if not root:
             root = os.getcwd()
@@ -63,6 +66,14 @@ class RepoMap:
 
         self.tree_cache = {}
         self.tree_context_cache = {}
+        self.map_cache = {}
+        self.map_processing_time = 0
+        self.last_map = None
+
+        if self.verbose:
+            self.io.tool_output(
+                f"RepoMap initialized with map_mul_no_files: {self.map_mul_no_files}"
+            )
 
     def token_count(self, text):
         len_text = len(text)
@@ -78,7 +89,14 @@ class RepoMap:
         est_tokens = sample_tokens / len(sample_text) * len_text
         return est_tokens
 
-    def get_repo_map(self, chat_files, other_files, mentioned_fnames=None, mentioned_idents=None):
+    def get_repo_map(
+        self,
+        chat_files,
+        other_files,
+        mentioned_fnames=None,
+        mentioned_idents=None,
+        force_refresh=False,
+    ):
         if self.max_map_tokens <= 0:
             return
         if not other_files:
@@ -94,7 +112,7 @@ class RepoMap:
         padding = 4096
         if max_map_tokens and self.max_context_window:
             target = min(
-                max_map_tokens * self.map_mul_no_files,
+                int(max_map_tokens * self.map_mul_no_files),
                 self.max_context_window - padding,
             )
         else:
@@ -104,7 +122,12 @@ class RepoMap:
 
         try:
             files_listing = self.get_ranked_tags_map(
-                chat_files, other_files, max_map_tokens, mentioned_fnames, mentioned_idents
+                chat_files,
+                other_files,
+                max_map_tokens,
+                mentioned_fnames,
+                mentioned_idents,
+                force_refresh,
             )
         except RecursionError:
             self.io.tool_error("Disabling repo map, git repo too large?")
@@ -408,6 +431,51 @@ class RepoMap:
         max_map_tokens=None,
         mentioned_fnames=None,
         mentioned_idents=None,
+        force_refresh=False,
+    ):
+        # Create a cache key
+        cache_key = (
+            tuple(sorted(chat_fnames)) if chat_fnames else None,
+            tuple(sorted(other_fnames)) if other_fnames else None,
+            max_map_tokens,
+        )
+
+        if not force_refresh:
+            if self.refresh == "manual" and self.last_map:
+                return self.last_map
+
+            if self.refresh == "always":
+                use_cache = False
+            elif self.refresh == "files":
+                use_cache = True
+            elif self.refresh == "auto":
+                use_cache = self.map_processing_time > 1.0
+
+            # Check if the result is in the cache
+            if use_cache and cache_key in self.map_cache:
+                return self.map_cache[cache_key]
+
+        # If not in cache or force_refresh is True, generate the map
+        start_time = time.time()
+        result = self.get_ranked_tags_map_uncached(
+            chat_fnames, other_fnames, max_map_tokens, mentioned_fnames, mentioned_idents
+        )
+        end_time = time.time()
+        self.map_processing_time = end_time - start_time
+
+        # Store the result in the cache
+        self.map_cache[cache_key] = result
+        self.last_map = result
+
+        return result
+    
+    def get_ranked_tags_map_uncached(
+        self,
+        chat_fnames,
+        other_fnames=None,
+        max_map_tokens=None,
+        mentioned_fnames=None,
+        mentioned_idents=None,
     ):
         if not other_fnames:
             other_fnames = list()
@@ -418,7 +486,7 @@ class RepoMap:
         if not mentioned_idents:
             mentioned_idents = set()
 
-        spin = Spinner("Preparing repo map")
+        spin = Spinner("Updating repo map")
 
         ranked_tags = self.get_ranked_tags(
             chat_fnames,
@@ -442,6 +510,7 @@ class RepoMap:
 
         middle = min(max_map_tokens // 25, num_tags)
         while lower_bound <= upper_bound:
+            # dump(lower_bound, middle, upper_bound)
 
             spin.step()
 
@@ -450,7 +519,6 @@ class RepoMap:
 
             pct_err = abs(num_tokens - max_map_tokens) / max_map_tokens
             ok_err = 0.15
-
             if (num_tokens <= max_map_tokens and num_tokens > best_tree_tokens) or pct_err < ok_err:
                 best_tree = tree
                 best_tree_tokens = num_tokens
@@ -471,11 +539,16 @@ class RepoMap:
     tree_cache = dict()
 
     def render_tree(self, abs_fname, rel_fname, lois):
-        key = (rel_fname, tuple(sorted(lois)))
+        mtime = self.get_mtime(abs_fname)
+        key = (rel_fname, tuple(sorted(lois)), mtime)
 
         if key in self.tree_cache:
             return self.tree_cache[key]
-        if rel_fname not in self.tree_context_cache:
+
+        if (
+            rel_fname not in self.tree_context_cache
+            or self.tree_context_cache[rel_fname]["mtime"] != mtime
+        ):
             code = self.io.read_text(abs_fname) or ""
             if not code.endswith("\n"):
                 code += "\n"
@@ -493,9 +566,9 @@ class RepoMap:
                 # header_max=30,
                 show_top_of_file_parent_scope=False,
             )
-            self.tree_context_cache[rel_fname] = context
+            self.tree_context_cache[rel_fname] = {"context": context, "mtime": mtime}
 
-        context = self.tree_context_cache[rel_fname]
+        context = self.tree_context_cache[rel_fname]["context"]
         context.lines_of_interest = set()
         context.add_lines_of_interest(lois)
         context.add_context()

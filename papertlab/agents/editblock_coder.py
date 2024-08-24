@@ -1,6 +1,7 @@
 import difflib
 import math
 import re
+import subprocess
 import sys
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -23,7 +24,28 @@ class EditBlockCoder(Coder):
         # might raise ValueError for malformed ORIG/UPD blocks
         edits = list(find_original_update_blocks(content, self.fence))
 
+        self.shell_commands += [edit[1] for edit in edits if edit[0] is None]
+        edits = [edit for edit in edits if edit[0] is not None]
+
         return edits
+    
+    def run_interactive_subprocess(self, command):
+        try:
+            result = subprocess.run(
+                command,
+                text=True,
+                shell=True,
+                encoding=self.io.encoding,
+                errors="replace",
+            )
+            if result.returncode == 0:
+                return
+            self.io.tool_error(f"Command '{command}' exited with status {result.returncode}")
+        except Exception as e:
+            self.io.tool_error(f"Error running command '{command}': {str(e)}")
+
+        self.io.tool_output(f"To retry and share output with the LLM: /run {command}")
+        self.io.tool_output("You can find this command in your input history with up-arrow.")
 
     def apply_edits(self, edits):
         failed = []
@@ -35,6 +57,7 @@ class EditBlockCoder(Coder):
             new_content = do_replace(full_path, content, original, updated, self.fence)
             if not new_content:
                 # try patching any of the other files in the chat
+                dump(self.abs_fnames)
                 for full_path in self.abs_fnames:
                     content = self.io.read_text(full_path)
                     new_content = do_replace(full_path, content, original, updated, self.fence)
@@ -390,68 +413,80 @@ def strip_filename(filename, fence):
 
 
 def find_original_update_blocks(content, fence=DEFAULT_FENCE):
-    # make sure we end with a newline, otherwise the regex will miss <<UPD on the last line
-    if not content.endswith("\n"):
-        content = content + "\n"
-
-    pieces = re.split(split_re, content)
-
-    pieces.reverse()
-    processed = []
-
-    # Keep using the same filename in cases where GPT produces an edit block
-    # without a filename.
+    lines = content.splitlines(keepends=True)
+    i = 0
     current_filename = None
-    try:
-        while pieces:
-            cur = pieces.pop()
 
-            if cur in (DIVIDER, UPDATED):
-                processed.append(cur)
-                raise ValueError(f"Unexpected {cur}")
+    while i < len(lines):
+        line = lines[i]
 
-            if cur.strip() != HEAD:
-                processed.append(cur)
-                continue
+        # Check for shell code blocks
+        shell_starts = [
+            "```bash",
+            "```sh",
+            "```shell",
+            "```cmd",
+            "```batch",
+            "```powershell",
+            "```ps1",
+            "```zsh",
+            "```fish",
+            "```ksh",
+            "```csh",
+            "```tcsh",
+        ]
+        next_is_editblock = i + 1 < len(lines) and lines[i + 1].rstrip() == HEAD
 
-            processed.append(cur)  # original_marker
+        if any(line.strip().startswith(start) for start in shell_starts) and not next_is_editblock:
+            shell_content = []
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                shell_content.append(lines[i])
+                i += 1
+            if i < len(lines) and lines[i].strip().startswith("```"):
+                i += 1  # Skip the closing ```
 
-            filename = find_filename(processed[-2].splitlines(), fence)
-            if not filename:
-                if current_filename:
-                    filename = current_filename
-                else:
-                    raise ValueError(missing_filename_err.format(fence=fence))
+            yield None, "".join(shell_content)
+            continue
 
-            current_filename = filename
+        # Check for SEARCH/REPLACE blocks
+        if line.strip() == HEAD:
+            try:
+                filename = find_filename(lines[max(0, i - 3) : i], fence)
+                if not filename:
+                    if current_filename:
+                        filename = current_filename
+                    else:
+                        raise ValueError(missing_filename_err.format(fence=fence))
 
-            original_text = pieces.pop()
-            processed.append(original_text)
+                current_filename = filename
 
-            divider_marker = pieces.pop()
-            processed.append(divider_marker)
-            if divider_marker.strip() != DIVIDER:
-                raise ValueError(f"Expected `{DIVIDER}` not {divider_marker.strip()}")
+                original_text = []
+                i += 1
+                while i < len(lines) and not lines[i].strip() == DIVIDER:
+                    original_text.append(lines[i])
+                    i += 1
 
-            updated_text = pieces.pop()
-            processed.append(updated_text)
+                if i >= len(lines) or lines[i].strip() != DIVIDER:
+                    raise ValueError(f"Expected `{DIVIDER}`")
 
-            updated_marker = pieces.pop()
-            processed.append(updated_marker)
-            if updated_marker.strip() != UPDATED:
-                raise ValueError(f"Expected `{UPDATED}` not `{updated_marker.strip()}")
+                updated_text = []
+                i += 1
+                while i < len(lines) and not lines[i].strip() in (UPDATED, DIVIDER):
+                    updated_text.append(lines[i])
+                    i += 1
 
-            yield filename, original_text, updated_text
-    except ValueError as e:
-        processed = "".join(processed)
-        err = e.args[0]
-        raise ValueError(f"{processed}\n^^^ {err}")
-    except IndexError:
-        processed = "".join(processed)
-        raise ValueError(f"{processed}\n^^^ Incomplete SEARCH/REPLACE block.")
-    except Exception:
-        processed = "".join(processed)
-        raise ValueError(f"{processed}\n^^^ Error parsing SEARCH/REPLACE block.")
+                if i >= len(lines) or lines[i].strip() not in (UPDATED, DIVIDER):
+                    raise ValueError(f"Expected `{UPDATED}` or `{DIVIDER}`")
+
+                yield filename, "".join(original_text), "".join(updated_text)
+
+            except ValueError as e:
+                processed = "".join(lines[: i + 1])
+                err = e.args[0]
+                raise ValueError(f"{processed}\n^^^ {err}")
+
+        i += 1
 
 
 def find_filename(lines, fence):
