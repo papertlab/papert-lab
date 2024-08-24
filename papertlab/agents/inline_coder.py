@@ -11,7 +11,7 @@ class InlineCoder(Coder):
     def cmd_inline(self, args):
         "Suggest inline changes to selected code"
         selected_code, edit_request = args.split('\n', 1)
-        message = f"""For the following code:
+        message = f"""Modify the following selected code based on the given request:
 
 <<<<<<< SEARCH
 {selected_code}
@@ -19,13 +19,12 @@ class InlineCoder(Coder):
 {selected_code}
 >>>>>>> REPLACE
 
-Suggested change: {edit_request}
+Requested change: {edit_request}
 
 Provide the modified code using the SEARCH/REPLACE format. 
-The SEARCH section should contain the exact original code.
-The REPLACE section should contain the entire code with your modifications.
-Make only the necessary changes in the REPLACE section.
-Preserve all indentation and formatting."""
+The SEARCH section must contain the exact original selected code.
+The REPLACE section should contain the entire modified code block.
+Make ONLY the requested changes, preserving all other code, indentation, and formatting."""
 
         result = self.run(message)
         return result, self
