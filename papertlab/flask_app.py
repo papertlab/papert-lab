@@ -3,6 +3,7 @@ import functools
 import os
 import json
 import hashlib
+import difflib
 import traceback
 import sys
 import threading
@@ -20,10 +21,11 @@ from git import Repo, InvalidGitRepositoryError, NoSuchPathError, GitCommandErro
 
 # Local application imports
 from papertlab.main import main as cli_main
-from papertlab.agents import Coder, AutopilotCoder
+from papertlab.agents import Coder
 from papertlab import models
 from papertlab.io import InputOutput
 from papertlab.commands import SwitchCoder
+from papertlab.utils import extract_updated_code
 
 
 
@@ -423,6 +425,54 @@ def get_latest_usage():
         'total_cost': result[1] or 0
     }
 
+def apply_changes_to_file(filename, search, replace):
+    """
+    Apply the changes to the specified file.
+    
+    :param filename: The name of the file to modify
+    :param search: The original code block
+    :param replace: The modified code block
+    """
+    try:
+        # Read the entire content of the file
+        with open(filename, 'r', encoding='utf-8') as file:
+            file_content = file.read()
+
+        # Split the content into lines
+        file_lines = file_content.splitlines()
+        search_lines = search.splitlines()
+        replace_lines = replace.splitlines()
+
+        # Find the location of the search block in the file
+        matcher = difflib.SequenceMatcher(None, file_content, search)
+        match = matcher.find_longest_match(0, len(file_content), 0, len(search))
+
+        if match.size == len(search):
+            # If an exact match is found, replace it
+            start_line = file_content.count('\n', 0, match.a)
+            end_line = start_line + len(search_lines)
+            
+            new_content = (
+                file_lines[:start_line] +
+                replace_lines +
+                file_lines[end_line:]
+            )
+
+            # Write the modified content back to the file
+            with open(filename, 'w', encoding='utf-8') as file:
+                file.write('\n'.join(new_content))
+
+            print(f"Changes applied successfully to {filename}")
+        else:
+            print(f"Exact match not found in {filename}. Changes not applied.")
+
+    except FileNotFoundError:
+        print(f"File not found: {filename}")
+    except PermissionError:
+        print(f"Permission denied: Unable to modify {filename}")
+    except Exception as e:
+        print(f"An error occurred while modifying {filename}: {str(e)}")
+        
 @app.route('/api/chat', methods=['POST'])
 @check_initialization
 def chat():
@@ -437,6 +487,8 @@ def chat():
     model = data.get('model') or current_model or DEFAULT_MODEL
     command = data.get('command', 'code')
     message = data.get('message', '')
+    selected_code = data.get('selectedCode', '')
+    file = data.get('file', '')
     print(f"Received {command} command: {message} (model: {model})")
 
     def generate():
@@ -445,8 +497,38 @@ def chat():
             yield f"data: {json.dumps({'chunk': f'Processing {command} command\n'})}\n\n"
 
             try:
+                if command == 'inline':
+                    inline_coder = Coder.create(
+                        main_model=coder.main_model,
+                        io=coder.io,
+                        edit_format="inline",
+                        from_coder=coder
+                    )
+                    result, temp_coder = inline_coder.cmd_inline(f"{data['selectedCode']}\n{message}")
+                    
+                    # Extract the edits
+                    edits = temp_coder.get_edits()
+                    
+                    if edits:
+                        # Assuming we're only dealing with one edit at a time for inline changes
+                        filename, search, replace = edits[0]
+                        
+                        # Check if we have a valid filename
+                        if filename != "inline_edit.txt":
+                            # Apply the changes to the file
+                            # You'll need to implement a method to apply these changes to the file
+                            apply_changes_to_file(filename, search, replace)
+                        
+                        # Send the result back to the client
+                        yield f"data: {json.dumps({'updatedCode': replace})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'error': 'No valid edits found'})}\n\n"
                 if command == 'code':
-                    result, temp_coder = coder.commands.cmd_code(message)
+                    if selected_code:
+                        message_with_code = f"In the file {file}, please modify this code:\n\n{selected_code}\n\nModification request: {message}"
+                        result, temp_coder = coder.commands.cmd_code(message_with_code)
+                    else:
+                        result, temp_coder = coder.commands.cmd_code(message)
                 elif command == 'ask':
                     result, temp_coder  = coder.commands.cmd_ask(message)
                 elif command == 'autopilot':
@@ -462,10 +544,7 @@ def chat():
                     yield f"data: {json.dumps({'chunk': f'Unknown command: {command}\n'})}\n\n"
                     return
                 
-                
             except SwitchCoder as sc:
-                # Handle the SwitchCoder exception
-                # print("**sc.kwarg========================", **sc.kwargs)
                 coder = Coder.create(**sc.kwargs)
                 result = None
                 
@@ -508,11 +587,10 @@ def chat():
                 commit_id = '\n\n' + temp_coder.git_commit_id + '\n\n'
                 yield f"data: {json.dumps({'chunk': commit_id})}\n\n"
 
-
-            # # Update file structure after changes
-            # usage_report = temp_coder.usage_report
-            # yield f"data: {json.dumps({'chunk': usage_report})}\n\n"
-         
+            if selected_code:
+                # Extract the updated code from the result
+                updated_code = extract_updated_code(result)
+                yield f"data: {json.dumps({'updatedCode': updated_code})}\n\n"
 
         except Exception as e:
             error_message = f"An error occurred: {str(e)}\n{traceback.format_exc()}"

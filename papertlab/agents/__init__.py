@@ -6,6 +6,7 @@ from .udiff_coder import UnifiedDiffCoder
 from .wholefile_coder import WholeFileCoder
 from .ask_coder import AskCoder
 from .autopilot_coder import AutopilotCoder
+from .inline_coder import InlineCoder
 
 __all__ = [
     HelpCoder,
@@ -16,4 +17,5 @@ __all__ = [
     WholeFileCoder,
     UnifiedDiffCoder,
     AutopilotCoder,
+    InlineCoder,
 ]

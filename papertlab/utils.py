@@ -348,3 +348,15 @@ def create_papertlab_readonly(root_dir):
         print(f"Created .papertlab_readonly file at {readonly_path}")
     else:
         print()
+
+def extract_updated_code(result):
+    # This function should extract the updated code from the result
+    # You might need to adjust this based on the exact format of your result
+    # This is a simplified example
+    start_marker = "```python"
+    end_marker = "```"
+    start_index = result.find(start_marker)
+    end_index = result.find(end_marker, start_index + len(start_marker))
+    if start_index != -1 and end_index != -1:
+        return result[start_index + len(start_marker):end_index].strip()
+    return None

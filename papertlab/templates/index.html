@@ -47,8 +47,20 @@
     <style>
       .CodeMirror {
         height: 100% !important;
-        width: 100% !important;
+        max-height: none;
+        width: 100%;
         font-size: 14px;
+    }
+
+    .CodeMirror-scroll {
+        max-height: none;
+    }
+
+    .CodeMirror-fullscreen {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        height: auto;
+        z-index: 9999;
     }
 
     .react-codemirror2 {
@@ -79,6 +91,42 @@
         background-color: #2d3748;
       }
     </style>
+    <style>
+      .CodeMirror-dialog {
+          position: absolute;
+          left: 0; right: 0;
+          background: inherit;
+          z-index: 15;
+          padding: .1em .8em;
+          overflow: hidden;
+          color: inherit;
+      }
+  
+      .cm-inline-edit-dialog {
+          display: flex;
+          flex-direction: column;
+          padding: 10px;
+      }
+  
+      .cm-inline-edit-dialog textarea {
+          margin: 10px 0;
+          padding: 5px;
+      }
+  
+      .cm-inline-edit-dialog button {
+          margin: 5px;
+          padding: 5px 10px;
+          background-color: #4a5568;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+      }
+  
+      .cm-inline-edit-dialog button:hover {
+          background-color: #2d3748;
+      }
+  </style>
 </head>
 <body>
     <div id="root"></div>
