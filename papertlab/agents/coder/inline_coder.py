@@ -1,7 +1,7 @@
 # In agents/inline_coder.py
 
 from .base_coder import Coder
-from .inline_prompts import InlinePrompts
+from ..prompts.inline_prompts import InlinePrompts
 
 class InlineCoder(Coder):
     """A coder that suggests inline changes to selected code."""

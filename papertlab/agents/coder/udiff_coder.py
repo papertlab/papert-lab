@@ -2,16 +2,16 @@ import difflib
 from itertools import groupby
 from pathlib import Path
 
-from ..dump import dump  # noqa: F401
+from ...dump import dump  # noqa: F401
 from .base_coder import Coder
-from .search_replace import (
+from ..search_replace import (
     SearchTextNotUnique,
     all_preprocs,
     diff_lines,
     flexible_search_and_replace,
     search_and_replace,
 )
-from .udiff_prompts import UnifiedDiffPrompts
+from ..prompts.udiff_prompts import UnifiedDiffPrompts
 
 no_match_error = """UnifiedDiffNoMatch: hunk failed to apply!
 

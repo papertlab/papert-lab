@@ -2,9 +2,9 @@ from pathlib import Path
 
 from papertlab import diffs
 
-from ..dump import dump  # noqa: F401
+from ...dump import dump  # noqa: F401
 from .base_coder import Coder
-from .wholefile_prompts import WholeFilePrompts
+from ..prompts.wholefile_prompts import WholeFilePrompts
 
 
 class WholeFileCoder(Coder):

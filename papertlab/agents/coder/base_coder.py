@@ -33,8 +33,8 @@ from papertlab.repomap import RepoMap
 from papertlab.sendchat import retry_exceptions, send_completion
 from papertlab.utils import format_content, format_messages, is_image_file
 
-from ..dump import dump  # noqa: F401
-from .chat_chunks import ChatChunks
+from ...dump import dump  # noqa: F401
+from ..chat_chunks import ChatChunks
 
 
 class MissingAPIKeyError(ValueError):

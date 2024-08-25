@@ -1,6 +1,6 @@
-from ..dump import dump  # noqa: F401
+from ...dump import dump  # noqa: F401
 from .base_coder import Coder
-from .help_prompts import HelpPrompts
+from ..prompts.help_prompts import HelpPrompts
 
 
 class HelpCoder(Coder):
