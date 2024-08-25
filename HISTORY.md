@@ -1,6 +1,10 @@
 
 # Release history
 
+### PapertLab v1.0.9
+- Inline AI Editor added
+- File Refactored 
+
 ### PapertLab v1.0.8
 - File Editor updated with 
     - Syntax Highlighting
