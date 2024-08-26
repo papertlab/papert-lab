@@ -420,6 +420,14 @@ def get_parser(default_config_files, git_root):
         default=False,
     )
 
+    group = parser.add_argument_group("Other Settings")
+    group.add_argument(
+        "--port",
+        type=int,
+        help="Specify the port to run the Flask application",
+        default=5000
+    )
+
     ##########
     group = parser.add_argument_group("Other Settings")
     group.add_argument(
@@ -533,6 +541,8 @@ def get_parser(default_config_files, git_root):
             " or home directory)"
         ),
     )
+
+
 
     return parser
 

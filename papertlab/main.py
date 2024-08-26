@@ -361,7 +361,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     if not return_coder:
         from papertlab.commands import launch_gui
-        launch_gui(argv)
+        launch_gui(args.port)
         return
 
     if args.verbose:

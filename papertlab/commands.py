@@ -17,11 +17,11 @@ from papertlab.llm import litellm
 from papertlab.scrape import Scraper, install_playwright
 from papertlab.utils import is_image_file
 
-def launch_gui(args):
+def launch_gui(port):
     from papertlab.flask_app import app
     print()
     print("CONTROL-C to exit...")
-    app.run(debug=True, use_reloader=False, threaded=True)
+    app.run(debug=True, use_reloader=False, threaded=True, port=port)
 
 from .dump import dump  # noqa: F401
 
