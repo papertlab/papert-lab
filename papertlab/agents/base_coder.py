@@ -16,6 +16,7 @@ from collections import defaultdict
 from datetime import datetime
 from json.decoder import JSONDecodeError
 from pathlib import Path
+import sqlite3
 
 import git
 from rich.console import Console, Text
@@ -31,10 +32,11 @@ from papertlab.mdstream import MarkdownStream
 from papertlab.repo import GitRepo
 from papertlab.repomap import RepoMap
 from papertlab.sendchat import retry_exceptions, send_completion
-from papertlab.utils import format_content, format_messages, is_image_file
+from papertlab.utils import format_content, format_messages, is_image_file, get_auto_commit_status
 
 from ..dump import dump  # noqa: F401
 
+DB_PATH = 'papertlab_gui.db'
 
 class MissingAPIKeyError(ValueError):
     pass
@@ -272,6 +274,10 @@ class Coder:
 
         self.io = io
         self.stream = stream
+
+        auto_commits = get_auto_commit_status(DB_PATH)
+
+        print("auto_commits====================", auto_commits)
 
         if not auto_commits:
             dirty_commits = False
@@ -1696,19 +1702,28 @@ class Coder:
         return context
 
     def auto_commit(self, edited):
-        print("edited===================", edited)
-        context = self.get_context_from_history(self.cur_messages)
-        res = self.repo.commit(fnames=edited, context=context, papertlab_edits=True)
-        if res:
-            self.show_auto_commit_outcome(res)
-            commit_hash, commit_message = res
-            return self.gpt_prompts.files_content_gpt_edits.format(
-                hash=commit_hash,
-                message=commit_message,
-            )
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
+        result = cursor.fetchone()
+        conn.close()
 
-        self.io.tool_output("No changes made to git tracked files.")
-        return self.gpt_prompts.files_content_gpt_no_edits
+        if result and result[0] == 'True':
+            print("edited===================", edited)
+            context = self.get_context_from_history(self.cur_messages)
+            res = self.repo.commit(fnames=edited, context=context, papertlab_edits=True)
+            if res:
+                self.show_auto_commit_outcome(res)
+                commit_hash, commit_message = res
+                return self.gpt_prompts.files_content_gpt_edits.format(
+                    hash=commit_hash,
+                    message=commit_message,
+                )
+
+            self.io.tool_output("No changes made to git tracked files.")
+            return self.gpt_prompts.files_content_gpt_no_edits
+        else:
+            return 
 
     def show_auto_commit_outcome(self, res):
         commit_hash, commit_message = res

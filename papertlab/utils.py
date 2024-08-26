@@ -5,7 +5,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-
+import sqlite3
 import git
 
 from papertlab.dump import dump  # noqa: F401
@@ -87,6 +87,16 @@ def is_image_file(file_name):
     file_name = str(file_name)  # Convert file_name to string
     return any(file_name.endswith(ext) for ext in IMAGE_EXTENSIONS)
 
+def get_auto_commit_status(DB_PATH):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
+    result = cursor.fetchone()
+    conn.close()
+
+    if result[0] == 'True':
+        return True
+    return False
 
 def safe_abs_path(res):
     "Gives an abs path, which safely returns a full (not 8.3) windows path"

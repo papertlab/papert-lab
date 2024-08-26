@@ -126,10 +126,39 @@ const UsageReport = () => {
     );
 };
 
+const ConfigSettings = ({ autoCommit, setAutoCommit, handleSave }) => (
+    <div className="p-6">
+        <h2 className="text-xl font-bold mb-4">Git Configuration</h2>
+        <div className="space-y-4">
+            <div className="flex items-center">
+                <input
+                    type="checkbox"
+                    id="autoCommit"
+                    checked={autoCommit}
+                    onChange={(e) => setAutoCommit(e.target.checked)}
+                    className="mr-2"
+                />
+                <label htmlFor="autoCommit" className="text-sm font-medium">
+                    Enable Auto Commit
+                </label>
+            </div>
+            <button
+                onClick={handleSave}
+                className="bg-green-700 text-black px-4 py-2 rounded hover:bg-green-600"
+            >
+                Save
+            </button>
+        </div>
+    </div>
+);
+
+
 const Settings = () => {
     const [openAiKey, setOpenAiKey] = React.useState('');
     const [anthropicKey, setAnthropicKey] = React.useState('');
     const [currentView, setCurrentView] = React.useState('api');
+    const [autoCommit, setAutoCommit] = React.useState(true);
+    const [currentConfigView, setCurrentConfigView] = React.useState('git');
 
     React.useEffect(() => {
         const fetchApiKeys = async () => {
@@ -143,7 +172,18 @@ const Settings = () => {
             }
         };
 
+        const fetchAutoCommitStatus = async () => {
+            try {
+                const response = await fetch('/api/get_auto_commit_status');
+                const data = await response.json();
+                setAutoCommit(data.auto_commit);
+            } catch (error) {
+                console.error('Error fetching auto commit status:', error);
+            }
+        };
+
         fetchApiKeys();
+        fetchAutoCommitStatus();
     }, []);
 
     const handleSave = async () => {
@@ -165,6 +205,24 @@ const Settings = () => {
         }
     };
 
+    const handleAutoCommitSave = async () => {
+        try {
+            const response = await fetch('/api/save_auto_commit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ auto_commit: autoCommit })
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Auto commit setting saved successfully!');
+            } else {
+                throw new Error('Failed to save auto commit setting');
+            }
+        } catch (error) {
+            console.error('Error saving auto commit setting:', error);
+        }
+    };
+
     return (
         <div className="flex h-screen">
             {/* Left Sidebar */}
@@ -172,17 +230,23 @@ const Settings = () => {
                 <div>
                     <h2 className="text-lg font-bold mb-4">Settings</h2>
                     <ul className="space-y-2">
-                        <li 
+                        <li
                             className={`cursor-pointer p-2 rounded ${currentView === 'api' ? 'bg-gray-800 text-green-400' : ''}`}
                             onClick={() => setCurrentView('api')}
                         >
                             API
                         </li>
-                        <li 
+                        <li
                             className={`cursor-pointer p-2 rounded ${currentView === 'usage' ? 'bg-gray-800 text-green-400' : ''}`}
                             onClick={() => setCurrentView('usage')}
                         >
                             Usage
+                        </li>
+                        <li
+                            className={`cursor-pointer p-2 rounded ${currentView === 'config' ? 'bg-gray-800 text-green-400' : ''}`}
+                            onClick={() => setCurrentView('config')}
+                        >
+                            Config
                         </li>
                     </ul>
                 </div>
@@ -190,10 +254,10 @@ const Settings = () => {
                     © 2024 <a href="https://papert.in" target="_blank">papert.in</a>
                 </div>
             </div>
-            
+
             {/* Right Content Area */}
             <div className="flex-grow">
-                {currentView === 'api' ? (
+                {currentView === 'api' && (
                     <APISettings
                         openAiKey={openAiKey}
                         setOpenAiKey={setOpenAiKey}
@@ -201,8 +265,14 @@ const Settings = () => {
                         setAnthropicKey={setAnthropicKey}
                         handleSave={handleSave}
                     />
-                ) : (
-                    <UsageReport />
+                )}
+                {currentView === 'usage' && <UsageReport />}
+                {currentView === 'config' && (
+                    <ConfigSettings
+                        autoCommit={autoCommit}
+                        setAutoCommit={setAutoCommit}
+                        handleSave={handleAutoCommitSave}
+                    />
                 )}
             </div>
         </div>

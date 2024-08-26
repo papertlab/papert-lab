@@ -22,6 +22,7 @@ from git import Repo, InvalidGitRepositoryError, NoSuchPathError, GitCommandErro
 # Local application imports
 from papertlab.main import main as cli_main
 from papertlab.agents import Coder
+from papertlab.agents.base_coder import DB_PATH
 from papertlab import models
 from papertlab.io import InputOutput
 from papertlab.commands import SwitchCoder
@@ -45,7 +46,7 @@ initialization_thread = None
 DEFAULT_MODEL = "claude-3-5-sonnet-20240620" if 'ANTHROPIC_API_KEY' in os.environ else "gpt-4o"
 coder = None
 coder_lock = threading.Lock()
-DB_PATH = 'papertlab_gui.db'
+
 
 
 def execute_command(cmd):
@@ -110,7 +111,19 @@ def init_db():
             cursor.execute(f'ALTER TABLE project_usage ADD COLUMN {column}')
             if column == 'datetime':
                 cursor.execute(f'UPDATE project_usage SET {column} = CURRENT_TIMESTAMP WHERE {column} IS NULL')
-    
+    conn.commit()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS config (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE,
+            value TEXT
+        );
+    ''')
+
+    # Insert default auto_commit value if not present
+    cursor.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('auto_commit', 'True')")
+
     conn.commit()
     conn.close()
 
@@ -249,8 +262,16 @@ def initialize_coder():
 
         coder = cli_main(return_coder=True)
 
-        if uncommitted_files and uncommitted_files != []:
-            coder.auto_commit(set(uncommitted_files))
+        # Check auto_commit setting from the database
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
+        auto_commit_setting = cursor.fetchone()
+        conn.close()
+
+        if auto_commit_setting and auto_commit_setting[0] == 'True':
+            if uncommitted_files and uncommitted_files != []:
+                coder.auto_commit(set(uncommitted_files))
 
         if not isinstance(coder, Coder):
             raise ValueError("Failed to initialize Coder")
@@ -294,6 +315,34 @@ def check_initialization(func):
         return func(*args, **kwargs)
     return wrapper
 
+@app.route('/api/save_auto_commit', methods=['POST'])
+def save_auto_commit():
+    data = request.json
+    auto_commit = data.get('auto_commit')
+
+    print("auto_commit===========================", auto_commit)
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Save or update the auto_commit setting
+    cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", ('auto_commit', str(auto_commit)))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True})
+
+
+@app.route('/api/get_auto_commit_status', methods=['GET'])
+def get_auto_commit_status():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
+    auto_commit_setting = cursor.fetchone()
+    conn.close()
+
+    auto_commit_status = auto_commit_setting[0] == 'True' if auto_commit_setting else True
+    return jsonify({"auto_commit": auto_commit_status})
 
 @handle_recursion_error
 @app.route('/api/usage', methods=['GET'])
