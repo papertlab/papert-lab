@@ -1,3 +1,13 @@
+const Notification = ({ message, show }) => {
+    if (!show) return null;
+
+    return (
+        <div className="fixed bottom-4 right-4 bg-green-700 text-white px-4 py-2 rounded shadow-lg">
+            {message}
+        </div>
+    );
+};
+
 const APISettings = ({ openAiKey, setOpenAiKey, anthropicKey, setAnthropicKey, handleSave }) => (
     <div className="p-6">
         <h2 className="text-xl font-bold mb-4">API Keys</h2>
@@ -159,6 +169,7 @@ const Settings = () => {
     const [currentView, setCurrentView] = React.useState('api');
     const [autoCommit, setAutoCommit] = React.useState(true);
     const [currentConfigView, setCurrentConfigView] = React.useState('git');
+    const [notification, setNotification] = React.useState({ show: false, message: '' });
 
     React.useEffect(() => {
         const fetchApiKeys = async () => {
@@ -186,6 +197,14 @@ const Settings = () => {
         fetchAutoCommitStatus();
     }, []);
 
+    const showNotification = (message) => {
+        setNotification({ show: true, message });
+        setTimeout(() => {
+            setNotification({ show: false, message: '' });
+        }, 3000);
+    };
+
+
     const handleSave = async () => {
         try {
             const response = await fetch('/api/set_api_key', {
@@ -195,7 +214,7 @@ const Settings = () => {
             });
             const data = await response.json();
             if (data.success) {
-                alert('API keys saved successfully!');
+                showNotification('API keys saved successfully!');
             } else {
                 throw new Error('Failed to save API keys');
             }
@@ -214,7 +233,7 @@ const Settings = () => {
             });
             const data = await response.json();
             if (data.success) {
-                alert('Auto commit setting saved successfully!');
+                showNotification('Auto commit setting saved successfully!');
             } else {
                 throw new Error('Failed to save auto commit setting');
             }
@@ -275,6 +294,8 @@ const Settings = () => {
                     />
                 )}
             </div>
+            {/* Notification */}
+            <Notification message={notification.message} show={notification.show} />
         </div>
     );
 };
