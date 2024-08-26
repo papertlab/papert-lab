@@ -26,7 +26,7 @@ from papertlab.agents.base_coder import DB_PATH
 from papertlab import models
 from papertlab.io import InputOutput
 from papertlab.commands import SwitchCoder
-from papertlab.utils import extract_updated_code
+from papertlab.utils import extract_updated_code, get_auto_commit_db_status
 
 
 
@@ -263,13 +263,9 @@ def initialize_coder():
         coder = cli_main(return_coder=True)
 
         # Check auto_commit setting from the database
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
-        auto_commit_setting = cursor.fetchone()
-        conn.close()
+        auto_commit_setting = get_auto_commit_db_status(DB_PATH)
 
-        if auto_commit_setting and auto_commit_setting[0] == 'True':
+        if auto_commit_setting:
             if uncommitted_files and uncommitted_files != []:
                 coder.auto_commit(set(uncommitted_files))
 
@@ -335,13 +331,7 @@ def save_auto_commit():
 
 @app.route('/api/get_auto_commit_status', methods=['GET'])
 def get_auto_commit_status():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
-    auto_commit_setting = cursor.fetchone()
-    conn.close()
-
-    auto_commit_status = auto_commit_setting[0] == 'True' if auto_commit_setting else True
+    auto_commit_status = get_auto_commit_db_status(DB_PATH)
     return jsonify({"auto_commit": auto_commit_status})
 
 @handle_recursion_error

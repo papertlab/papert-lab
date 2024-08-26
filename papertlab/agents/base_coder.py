@@ -32,7 +32,7 @@ from papertlab.mdstream import MarkdownStream
 from papertlab.repo import GitRepo
 from papertlab.repomap import RepoMap
 from papertlab.sendchat import retry_exceptions, send_completion
-from papertlab.utils import format_content, format_messages, is_image_file, get_auto_commit_status
+from papertlab.utils import format_content, format_messages, is_image_file, get_auto_commit_db_status
 
 from ..dump import dump  # noqa: F401
 
@@ -275,7 +275,7 @@ class Coder:
         self.io = io
         self.stream = stream
 
-        auto_commits = get_auto_commit_status(DB_PATH)
+        auto_commits = get_auto_commit_db_status(DB_PATH)
 
         print("auto_commits====================", auto_commits)
 
@@ -1702,13 +1702,9 @@ class Coder:
         return context
 
     def auto_commit(self, edited):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
-        result = cursor.fetchone()
-        conn.close()
+        result = get_auto_commit_db_status(DB_PATH)
 
-        if result and result[0] == 'True':
+        if result:
             print("edited===================", edited)
             context = self.get_context_from_history(self.cur_messages)
             res = self.repo.commit(fnames=edited, context=context, papertlab_edits=True)
