@@ -359,7 +359,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         editingmode=editing_mode,
     )
 
-    if not return_coder:
+    if not args.terminal and not return_coder:
+        # Start Flask GUI
         from papertlab.commands import launch_gui
         launch_gui(args.port)
         return

@@ -38,6 +38,12 @@ def get_parser(default_config_files, git_root):
         "files", metavar="FILE", nargs="*", help="files to edit with an LLM (optional)"
     )
     group.add_argument(
+        "--terminal",
+        action="store_true",
+        help="Run papertlab in terminal mode",
+    )
+
+    group.add_argument(
         "--openai-api-key",
         metavar="OPENAI_API_KEY",
         env_var="OPENAI_API_KEY",
