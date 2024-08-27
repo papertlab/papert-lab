@@ -137,6 +137,13 @@ const App = () => {
     const codeMirrorInstanceRef = React.useRef(null);
     const dropdownRef = React.useRef(null);
     const [unsupportedFile, setUnsupportedFile] = React.useState(null);
+    const [isInputEmpty, setIsInputEmpty] = React.useState(true);
+
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setInput(value);
+        setIsInputEmpty(value.trim() === '');
+    };
 
     const handleCommandSelect = (command) => {
         setSelectedCommand(command);
@@ -667,13 +674,14 @@ const App = () => {
                             <input
                                 type="text"
                                 value={input}
-                                onChange={(e) => setInput(e.target.value)}
+                                onChange={handleInputChange}
                                 className="flex-grow bg-gray-800 text-green-400 border border-green-700 rounded-l px-2 sm:px-4 py-1 sm:py-2 focus:outline-none focus:border-green-500"
                                 placeholder={`Type a message for ${selectedCommand} command...`}
                             />
                             <button
                                 type="submit"
-                                className="bg-green-700 text-black px-2 sm:px-4 py-1 sm:py-2 rounded-r hover:bg-green-600 focus:outline-none"
+                                className="bg-green-700 text-black px-2 sm:px-4 py-1 sm:py-2 rounded-r hover:bg-green-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isInputEmpty}
                             >
                                 Send
                             </button>
