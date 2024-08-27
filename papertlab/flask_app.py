@@ -103,14 +103,6 @@ def get_api_keys():
 def index(path):
     return send_from_directory(app.template_folder, 'index.html')
 
-@app.route('/usage')
-def serve_usage():
-    return send_from_directory(app.template_folder, 'usage.html')
-
-@app.route('/static/usage.js')
-def serve_usage_js():
-    return send_from_directory(app.template_folder, 'usage.js')
-
 @app.route('/settings')
 def serve_settings():
     return render_template('settings.html')
