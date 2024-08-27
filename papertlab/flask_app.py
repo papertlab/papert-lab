@@ -107,10 +107,6 @@ def index(path):
 def serve_settings():
     return render_template('settings.html')
 
-@app.route('/static/history.html')
-def serve_history():
-    return send_from_directory(app.template_folder, 'history.html')
-
 @app.route('/api/check_api_key', methods=['GET'])
 def check_api_key():
     openai_key_present = 'OPENAI_API_KEY' in os.environ
