@@ -8,7 +8,7 @@ import traceback
 import sys
 import threading
 from pathlib import Path
-from datetime import datetime, date
+from datetime import date
 from threading import Thread
 import sqlite3
 import subprocess
