@@ -231,24 +231,28 @@ window.Editor = ({ file, content, onClose, onSave }) => {
     );
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-1 z-50">
-            <div className="bg-gray-800 p-2 rounded-lg w-11/12 h-5/6 flex flex-col overflow-hidden">
-                <div className="flex justify-between items-center p-1 border-b border-gray-700">
-                    <h2 className="text-xl font-bold text-green-400">{file}</h2>
-                    <div>
-                        <button
-                            onClick={handleClose}
-                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-                <div className="flex-grow overflow-hidden">
-                    <textarea ref={editorRef} defaultValue={content} className="h-full w-full" />
+        <>
+            <div className="sticky top-0 z-10 bg-gray-800 flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">{file}</h2>
+                <div>
+                    <button
+                        onClick={handleClose}
+                        className="bg-red-700 text-black px-2 py-1 rounded hover:bg-red-600 focus:outline-none"
+                    >
+                       <i class="far fa-window-close"></i>
+                    </button>
                 </div>
             </div>
+            <div className="flex-grow overflow-hidden">
+                <textarea
+                    ref={editorRef}
+                    defaultValue={content}
+                    className="w-full h-full"
+                    style={{ display: 'none' }}
+                />
+            </div>
+
             {showChangeModal && <ChangeModal />}
-        </div>
+        </>
     );
 };

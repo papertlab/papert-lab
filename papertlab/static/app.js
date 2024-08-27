@@ -621,16 +621,16 @@ const App = () => {
                         </div>
                     </header>
             
-                    <div className="flex-grow flex flex-col sm:flex-row overflow-hidden">
+                    <div className="flex-grow flex overflow-hidden relative">
                         {showFilePanel && (
-                            <div className="w-full sm:w-1/4 overflow-y-auto border-b sm:border-b-0 sm:border-r border-green-700 p-2">
-                                <h2 className="text-lg sm:text-xl font-bold mb-2">Chat Files</h2>
+                            <div className="w-1/4 overflow-y-auto border-r border-green-700 p-2">
+                                <h2 className="text-lg font-bold mb-2">Chat Files</h2>
                                 {renderFileTree(files)}
                             </div>
                         )}
                    
-                        <div className={`flex-grow flex flex-col ${showFilePanel ? 'sm:w-1/2' : 'w-full'}`}>
-                            <div className="flex-grow overflow-y-auto mb-2 sm:mb-4 border border-green-700 p-2">
+                        <div className="flex-grow overflow-hidden">
+                            <div className="h-full overflow-y-auto border border-green-700 p-4">
                                 {messages.map((message, index) => (
                                     <div key={index} className="mb-2 whitespace-pre-wrap">
                                         <span className={`font-bold ${getTextColor(message.role)}`}>
@@ -748,14 +748,20 @@ const App = () => {
                     )}
             
                     {/* File Editor Modal */}
-                    {selectedFile && (
-                        <Editor
-                            file={selectedFile}
-                            content={fileContent}
-                            onClose={handleEditorClose}
-                            onSave={handleEditorSave}
-                        />
-                    )}
+                
+                        {selectedFile && (
+                            <div className="absolute right-0 top-0 bottom-20 w-3/4 bg-gray-800 border-l border-green-700 p-2 flex flex-col">
+                                <Editor
+                                    file={selectedFile}
+                                    content={fileContent}
+                                    onClose={handleEditorClose}
+                                    onSave={handleEditorSave}
+                                />
+                                </div>
+                        )}
+                        
+                        
+                   
                 </>
             )}
         </div>
