@@ -7,6 +7,17 @@ window.Editor = ({ file, content, onClose, onSave }) => {
     const [isLoading, setIsLoading] = React.useState(false);
     const [selectedCode, setSelectedCode] = React.useState('');
     const [selectedRange, setSelectedRange] = React.useState(null);
+    const [saveMessage, setSaveMessage] = React.useState('');
+
+    const handleSave = React.useCallback((cm) => {
+        if (cm) {
+            cm.save();  // This saves the content back to the textarea
+            const currentContent = cm.getValue();
+            onSave(currentContent);
+            setSaveMessage('File saved successfully!');
+            setTimeout(() => setSaveMessage(''), 2000);  // Clear message after 2 seconds
+        }
+    }, [onSave]);
 
     React.useEffect(() => {
         if (editorRef.current) {
@@ -29,7 +40,9 @@ window.Editor = ({ file, content, onClose, onSave }) => {
                     'Ctrl-H': 'replace',
                     'Cmd-Option-F': 'replace',
                     'Ctrl-I': 'inlineEdit',
-                    'Cmd-I': 'inlineEdit'
+                    'Cmd-I': 'inlineEdit',
+                    'Ctrl-S': (cm) => { handleSave(cm); return false; },
+                    'Cmd-S': (cm) => { handleSave(cm); return false; },
                 },
                 lint: true,
                 styleActiveLine: true,
@@ -235,6 +248,7 @@ window.Editor = ({ file, content, onClose, onSave }) => {
             <div className="sticky top-0 z-10 bg-gray-800 flex justify-between items-center mb-4">
                 <h2 className="text-lg font-bold">{file}</h2>
                 <div>
+                {saveMessage && <span className="text-green-400 mr-4">{saveMessage}</span>}
                     <button
                         onClick={handleClose}
                         className="bg-red-700 text-black px-2 py-1 rounded hover:bg-red-600 focus:outline-none"
