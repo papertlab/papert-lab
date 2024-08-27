@@ -26,9 +26,8 @@ from papertlab.agents.base_coder import DB_PATH
 from papertlab import models
 from papertlab.io import InputOutput
 from papertlab.commands import SwitchCoder
-from papertlab.utils import extract_updated_code, get_auto_commit_db_status
-
-
+from papertlab.utils import extract_updated_code, execute_command, get_available_models
+from papertlab.sql_utils import init_db, get_auto_commit_db_status
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -47,87 +46,7 @@ DEFAULT_MODEL = "claude-3-5-sonnet-20240620" if 'ANTHROPIC_API_KEY' in os.enviro
 coder = None
 coder_lock = threading.Lock()
 
-
-
-def execute_command(cmd):
-    """
-    Executes a command in the command line and returns the output and error messages.
-
-    Parameters:
-    cmd (str): The command to execute.
-
-    Returns:
-    tuple: A tuple containing the command's standard output and standard error.
-    """
-    try:
-        result = subprocess.run(cmd, shell=True, check=True, text=True, capture_output=True)
-        return result.stdout, result.stderr
-    except subprocess.CalledProcessError as e:
-        return e.stdout, e.stderr
-
-def get_available_models():
-    models = []
-    if 'ANTHROPIC_API_KEY' in os.environ:
-        models.extend([
-            "claude-3-5-sonnet-20240620",
-            "claude-3-opus-20240229",
-            "claude-3-haiku-20240307",
-        ])
-    if 'OPENAI_API_KEY' in os.environ:
-        models.extend([
-            "gpt-4o",
-            "gpt-4-0613",
-            "gpt-4-turbo-preview",
-            "gpt-4-1106-preview",
-            "gpt-3.5-turbo",
-        ])
-    return models
-
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Create table if it doesn't exist
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS project_usage (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            project_id TEXT,
-            model TEXT,
-            input_token INTEGER,
-            output_token INTEGER,
-            cost REAL,
-            total_cost REAL,
-            datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Check if all required columns exist, if not, add them
-    cursor.execute("PRAGMA table_info(project_usage)")
-    columns = [column[1] for column in cursor.fetchall()]
-    required_columns = ['project_id','model', 'input_token', 'output_token', 'cost', 'total_cost', 'datetime']
-    for column in required_columns:
-        if column not in columns:
-            cursor.execute(f'ALTER TABLE project_usage ADD COLUMN {column}')
-            if column == 'datetime':
-                cursor.execute(f'UPDATE project_usage SET {column} = CURRENT_TIMESTAMP WHERE {column} IS NULL')
-    conn.commit()
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS config (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key TEXT UNIQUE,
-            value TEXT
-        );
-    ''')
-
-    # Insert default auto_commit value if not present
-    cursor.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('auto_commit', 'True')")
-
-    conn.commit()
-    conn.close()
-
-init_db()
+init_db(DB_PATH)
 
 class Logger:
     def __init__(self):

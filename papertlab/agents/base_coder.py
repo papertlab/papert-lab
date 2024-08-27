@@ -32,7 +32,8 @@ from papertlab.mdstream import MarkdownStream
 from papertlab.repo import GitRepo
 from papertlab.repomap import RepoMap
 from papertlab.sendchat import retry_exceptions, send_completion
-from papertlab.utils import format_content, format_messages, is_image_file, get_auto_commit_db_status
+from papertlab.utils import format_content, format_messages, is_image_file
+from papertlab.sql_utils import get_auto_commit_db_status
 
 from ..dump import dump  # noqa: F401
 

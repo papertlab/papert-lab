@@ -5,7 +5,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-import sqlite3
 import git
 
 from papertlab.dump import dump  # noqa: F401
@@ -87,16 +86,6 @@ def is_image_file(file_name):
     file_name = str(file_name)  # Convert file_name to string
     return any(file_name.endswith(ext) for ext in IMAGE_EXTENSIONS)
 
-def get_auto_commit_db_status(DB_PATH):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT value FROM config WHERE key = 'auto_commit'")
-    result = cursor.fetchone()
-    conn.close()
-
-    if result[0] == 'True':
-        return True
-    return False
 
 def safe_abs_path(res):
     "Gives an abs path, which safely returns a full (not 8.3) windows path"
@@ -370,3 +359,37 @@ def extract_updated_code(result):
     if start_index != -1 and end_index != -1:
         return result[start_index + len(start_marker):end_index].strip()
     return None
+
+def execute_command(cmd):
+    """
+    Executes a command in the command line and returns the output and error messages.
+
+    Parameters:
+    cmd (str): The command to execute.
+
+    Returns:
+    tuple: A tuple containing the command's standard output and standard error.
+    """
+    try:
+        result = subprocess.run(cmd, shell=True, check=True, text=True, capture_output=True)
+        return result.stdout, result.stderr
+    except subprocess.CalledProcessError as e:
+        return e.stdout, e.stderr
+
+def get_available_models():
+    models = []
+    if 'ANTHROPIC_API_KEY' in os.environ:
+        models.extend([
+            "claude-3-5-sonnet-20240620",
+            "claude-3-opus-20240229",
+            "claude-3-haiku-20240307",
+        ])
+    if 'OPENAI_API_KEY' in os.environ:
+        models.extend([
+            "gpt-4o",
+            "gpt-4-0613",
+            "gpt-4-turbo-preview",
+            "gpt-4-1106-preview",
+            "gpt-3.5-turbo",
+        ])
+    return models
