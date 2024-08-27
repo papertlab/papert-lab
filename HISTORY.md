@@ -1,6 +1,11 @@
 
 # Release history
 
+### PapertLab v1.1.2
+- Inline AI code editor added
+- Autocommit config added in setting page
+- Terminal support added (Beta)
+
 ### PapertLab v1.0.8
 - File Editor updated with 
     - Syntax Highlighting
