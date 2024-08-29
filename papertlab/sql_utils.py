@@ -2,13 +2,16 @@ import sqlite3
 
 
 def store_project_usage_db(DB_PATH, project_name, model, temp_coder):
+    cost = getattr(temp_coder, 'cost', 0)
+    total_cost = getattr(temp_coder, 'total_cost', 0)
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('''
                 INSERT INTO project_usage (project_id, model, input_token, output_token, cost, total_cost, datetime)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ''', (project_name, model, temp_coder.input_token, temp_coder.output_token, temp_coder.cost, temp_coder.total_cost))
+            ''', (project_name, model, temp_coder.input_token, temp_coder.output_token, cost, total_cost))
     conn.commit()
     conn.close()
     
