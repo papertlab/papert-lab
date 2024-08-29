@@ -403,7 +403,7 @@ def get_available_models():
         ])
     if 'OLLAMA_API_BASE' in os.environ:
         models.extend([
-            "ollama",
+            "ollama/llama3.1",
         ])
     if 'COHERE_API_KEY' in os.environ:
         models.extend([
