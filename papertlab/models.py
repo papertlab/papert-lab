@@ -337,6 +337,42 @@ MODEL_SETTINGS = [
         send_undo_reply=False,
         examples_as_sys_msg=True,
     ),
+    # ollama codeqwen
+    ModelSettings(
+        "ollama/codeqwen",
+        "diff",
+        # weak_model_name="ollama/codeqwen",
+        use_repo_map=False,
+        send_undo_reply=False,
+        examples_as_sys_msg=True,
+    ),
+    # ollama codellama
+    ModelSettings(
+        "ollama/codellama",
+        "diff",
+        # weak_model_name="ollama/codellama",
+        use_repo_map=False,
+        send_undo_reply=False,
+        examples_as_sys_msg=True,
+    ),
+    # ollama codestral
+    ModelSettings(
+        "ollama/codestral",
+        "diff",
+        # weak_model_name="ollama/codestral",
+        use_repo_map=False,
+        send_undo_reply=False,
+        examples_as_sys_msg=True,
+    ),
+    # ollama codegemma
+    ModelSettings(
+        "ollama/codegemma",
+        "diff",
+        # weak_model_name="ollama/codegemma",
+        use_repo_map=False,
+        send_undo_reply=False,
+        examples_as_sys_msg=True,
+    ),
     # Openrouter llama3
     ModelSettings(
         "openrouter/meta-llama/llama-3-70b-instruct",
