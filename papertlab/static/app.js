@@ -1,6 +1,3 @@
-
-
-
 const getTextColor = (role) => {
     switch (role) {
         case 'assistant':
@@ -138,6 +135,14 @@ const App = () => {
     const dropdownRef = React.useRef(null);
     const [unsupportedFile, setUnsupportedFile] = React.useState(null);
     const [isInputEmpty, setIsInputEmpty] = React.useState(true);
+    const [apiKeys, setApiKeys] = React.useState({
+        openai: '',
+        anthropic: '',
+        gemini: '',
+        groq: '',
+        ollama: '',
+        cohere: ''
+    });
 
     const handleInputChange = (e) => {
         const value = e.target.value;
@@ -202,10 +207,17 @@ const App = () => {
                 setIsInitializing(false);
                 setFiles(data.files || {});
                 setModels(data.models || []);
-                setSelectedModel(data.current_model || null);
+
+                // Always set the selected model to the current_model from the backend
+                if (data.current_model) {
+                    setSelectedModel(data.current_model);
+                    console.log("Setting model to:", data.current_model);
+                }
+
                 if (Array.isArray(data.announcements)) {
                     setMessages(data.announcements.map(announcement => ({ role: 'system', content: announcement })));
                 }
+       
             } else {
                 setTimeout(checkInitializationStatus, 2000); // Check again in 2 seconds
             }
@@ -431,7 +443,14 @@ const App = () => {
             const response = await fetch('/api/set_api_key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ openai_key: apiKey, anthropic_key: anthropicApiKey })
+                body: JSON.stringify({
+                    openai_key: apiKeys.openai,
+                    anthropic_key: apiKeys.anthropic,
+                    gemini_key: apiKeys.gemini,
+                    groq_key: apiKeys.groq,
+                    ollama_base: apiKeys.ollama,
+                    cohere_key: apiKeys.cohere
+                })
             });
             const data = await response.json();
             if (data.success) {
@@ -543,12 +562,10 @@ const App = () => {
                 ]);
             } else {
                 console.error('Error setting model:', data.error);
-                // Revert the selection if there was an error
                 setSelectedModel(prevModel => prevModel);
             }
         } catch (error) {
             console.error('Error setting model:', error);
-            // Revert the selection if there was an error
             setSelectedModel(prevModel => prevModel);
         }
     };
@@ -636,7 +653,7 @@ const App = () => {
                             </div>
                         )}
                    
-                        <div className="flex-grow overflow-hidden">
+                        <div className="w-3/4 flex-grow overflow-hidden">
                             <div className="h-full overflow-y-auto border border-green-700 p-4">
                                 {messages.map((message, index) => (
                                     <div key={index} className="mb-2 whitespace-pre-wrap">
@@ -712,20 +729,16 @@ const App = () => {
                             <div className="bg-gray-800 p-5 rounded-lg w-full max-w-md">
                                 <h2 className="text-xl font-bold mb-4">Enter your API Keys</h2>
                                 <form onSubmit={handleApiKeySubmit}>
-                                    <input
-                                        type="text"
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        className="bg-gray-700 text-white border border-gray-600 rounded px-4 py-2 w-full mb-4"
-                                        placeholder="OpenAI API Key"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={anthropicApiKey}
-                                        onChange={(e) => setAnthropicApiKey(e.target.value)}
-                                        className="bg-gray-700 text-white border border-gray-600 rounded px-4 py-2 w-full mb-4"
-                                        placeholder="Anthropic API Key"
-                                    />
+                                    {Object.entries(apiKeys).map(([key, value]) => (
+                                        <input
+                                            key={key}
+                                            type="text"
+                                            value={value}
+                                            onChange={(e) => setApiKeys({...apiKeys, [key]: e.target.value})}
+                                            className="bg-gray-700 text-white border border-gray-600 rounded px-4 py-2 w-full mb-4"
+                                            placeholder={`${key.charAt(0).toUpperCase() + key.slice(1)} API Key`}
+                                        />
+                                    ))}
                                     <button
                                         type="submit"
                                         className="bg-green-500 text-black px-4 py-2 rounded hover:bg-green-600 w-full"
