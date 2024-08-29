@@ -1,5 +1,77 @@
 import sqlite3
 
+
+def store_project_usage_db(DB_PATH, project_name, model, temp_coder):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+                INSERT INTO project_usage (project_id, model, input_token, output_token, cost, total_cost, datetime)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (project_name, model, temp_coder.input_token, temp_coder.output_token, temp_coder.cost, temp_coder.total_cost))
+    conn.commit()
+    conn.close()
+    
+
+def get_latest_usage_db(DB_PATH):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT SUM(input_token + output_token) as total_tokens, SUM(cost) as total_cost
+        FROM project_usage
+    ''')
+    result = cursor.fetchone()
+    conn.close()
+    return result
+
+def get_monthly_usage_db(DB_PATH, first_day_of_month):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get total tokens and cost for the current month
+    cursor.execute('''
+        SELECT SUM(input_token + output_token) as total_tokens, SUM(cost) as total_cost
+        FROM project_usage
+        WHERE datetime >= ?
+    ''', (first_day_of_month,))
+    
+    result = cursor.fetchone()
+    conn.close()
+
+    return result
+
+def get_usage_data_db(DB_PATH, per_page, offset):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get total count
+    cursor.execute('SELECT COUNT(*) FROM project_usage')
+    total_count = cursor.fetchone()[0]
+    
+    # Get paginated data
+    cursor.execute('''
+        SELECT id, project_id, model, input_token, output_token, cost, total_cost, datetime
+        FROM project_usage
+        ORDER BY datetime DESC
+        LIMIT ? OFFSET ?
+    ''', (per_page, offset))
+    
+    results = cursor.fetchall()
+    conn.close()
+
+    return total_count, results
+
+
+def save_auto_commit_db(DB_PATH, auto_commit):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Save or update the auto_commit setting
+    cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", ('auto_commit', str(auto_commit)))
+    conn.commit()
+    conn.close()
+    return True
+
 def get_auto_commit_db_status(DB_PATH):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()

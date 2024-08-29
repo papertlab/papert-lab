@@ -33,7 +33,7 @@ from papertlab.repo import GitRepo
 from papertlab.repomap import RepoMap
 from papertlab.sendchat import retry_exceptions, send_completion
 from papertlab.utils import format_content, format_messages, is_image_file
-from papertlab.sql_utils import get_auto_commit_db_status
+from papertlab.sql_utils import get_auto_commit_db_status, save_auto_commit_db
 
 from ..dump import dump  # noqa: F401
 
@@ -276,7 +276,13 @@ class Coder:
         self.io = io
         self.stream = stream
 
-        auto_commits = get_auto_commit_db_status(DB_PATH)
+        db_auto_commits = get_auto_commit_db_status(DB_PATH)
+
+        if auto_commits:
+            if auto_commits != db_auto_commits:
+                save_auto_commit_db(DB_PATH, auto_commits)
+        else:
+            auto_commits = db_auto_commits
 
         print("auto_commits====================", auto_commits)
 

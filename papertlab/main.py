@@ -12,6 +12,7 @@ from prompt_toolkit.enums import EditingMode
 from papertlab import __version__, models, utils
 from papertlab.args import get_parser
 from papertlab.agents import Coder
+from papertlab.agents.base_coder import DB_PATH
 from papertlab.commands import Commands, SwitchCoder
 from papertlab.history import ChatSummary
 from papertlab.io import InputOutput
@@ -19,7 +20,7 @@ from papertlab.llm import litellm  # noqa: F401; properly init litellm on launch
 from papertlab.repo import GitRepo
 from papertlab.utils import create_papertlabignore, create_papertlab_readonly
 from papertlab.versioncheck import check_version
-
+from papertlab.sql_utils import init_db
 from .dump import dump  # noqa: F401
 
 
@@ -277,6 +278,9 @@ def register_litellm_models(git_root, model_metadata_fname, io, verbose=False):
         return 1
 
 def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
+
+    init_db(DB_PATH)
+    
     if argv is None:
         argv = sys.argv[1:]
 

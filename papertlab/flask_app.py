@@ -10,7 +10,6 @@ import threading
 from pathlib import Path
 from datetime import date
 from threading import Thread
-import sqlite3
 import subprocess
 
 # Third-party imports
@@ -27,7 +26,7 @@ from papertlab import models
 from papertlab.io import InputOutput
 from papertlab.commands import SwitchCoder
 from papertlab.utils import extract_updated_code, execute_command, get_available_models
-from papertlab.sql_utils import init_db, get_auto_commit_db_status
+from papertlab.sql_utils import get_auto_commit_db_status, save_auto_commit_db, get_usage_data_db, get_monthly_usage_db, get_latest_usage_db, store_project_usage_db
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -45,8 +44,6 @@ initialization_thread = None
 DEFAULT_MODEL = "claude-3-5-sonnet-20240620" if 'ANTHROPIC_API_KEY' in os.environ else "gpt-4o"
 coder = None
 coder_lock = threading.Lock()
-
-init_db(DB_PATH)
 
 class Logger:
     def __init__(self):
@@ -223,17 +220,11 @@ def save_auto_commit():
     data = request.json
     auto_commit = data.get('auto_commit')
 
-    print("auto_commit===========================", auto_commit)
+    print("auto_commit===========================", auto_commit) 
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    status = save_auto_commit_db(DB_PATH, auto_commit)
 
-    # Save or update the auto_commit setting
-    cursor.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", ('auto_commit', str(auto_commit)))
-    conn.commit()
-    conn.close()
-
-    return jsonify({"success": True})
+    return jsonify({"success": status})
 
 
 @app.route('/api/get_auto_commit_status', methods=['GET'])
@@ -248,23 +239,7 @@ def get_usage():
     per_page = int(request.args.get('per_page', 10))
     offset = (page - 1) * per_page
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Get total count
-    cursor.execute('SELECT COUNT(*) FROM project_usage')
-    total_count = cursor.fetchone()[0]
-    
-    # Get paginated data
-    cursor.execute('''
-        SELECT id, project_id, model, input_token, output_token, cost, total_cost, datetime
-        FROM project_usage
-        ORDER BY datetime DESC
-        LIMIT ? OFFSET ?
-    ''', (per_page, offset))
-    
-    results = cursor.fetchall()
-    conn.close()
+    total_count, results = get_usage_data_db(DB_PATH, per_page, offset)
     
     usage_data = [
         {
@@ -288,21 +263,10 @@ def get_usage():
 @app.route('/api/monthly_usage', methods=['GET'])
 def get_monthly_usage():
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
         # Get the first day of the current month
         first_day_of_month = date.today().replace(day=1).isoformat()
-        
-        # Get total tokens and cost for the current month
-        cursor.execute('''
-            SELECT SUM(input_token + output_token) as total_tokens, SUM(cost) as total_cost
-            FROM project_usage
-            WHERE datetime >= ?
-        ''', (first_day_of_month,))
-        
-        result = cursor.fetchone()
-        conn.close()
+
+        result = get_monthly_usage_db(DB_PATH, first_day_of_month)
         
         total_tokens = int(result[0] or 0)
         total_cost = float(result[1] or 0)
@@ -358,14 +322,9 @@ def set_model():
             return jsonify({"error": f"Failed to set model: {str(e)}"}), 500
         
 def get_latest_usage():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT SUM(input_token + output_token) as total_tokens, SUM(cost) as total_cost
-        FROM project_usage
-    ''')
-    result = cursor.fetchone()
-    conn.close()
+
+    result = get_latest_usage_db(DB_PATH)
+
     return {
         'total_tokens': result[0] or 0,
         'total_cost': result[1] or 0
@@ -501,16 +460,9 @@ def chat():
 
             yield f"data: {json.dumps({'chunk': f"{messages}\n"})}\n\n"
             
-            # Update project usage in the database
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
             project_name = os.path.basename(os.getcwd())
-            cursor.execute('''
-                INSERT INTO project_usage (project_id, model, input_token, output_token, cost, total_cost, datetime)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ''', (project_name, model, temp_coder.input_token, temp_coder.output_token, temp_coder.cost, temp_coder.total_cost))
-            conn.commit()
-            conn.close()
+            # Update project usage in the database
+            store_project_usage_db(DB_PATH, project_name, model, temp_coder)
 
             # Get and send updated usage information
             latest_usage = get_latest_usage()
