@@ -16,7 +16,7 @@ from papertlab import urls
 from papertlab.dump import dump  # noqa: F401
 from papertlab.llm import PAPERTLAB_APP_NAME, PAPERTLAB_SITE_URL, litellm
 
-DEFAULT_MODEL_NAME = "gpt-4o"
+DEFAULT_MODEL_NAME = "claude-3-5-sonnet-20240620"
 
 OPENAI_MODELS = """
 gpt-4
