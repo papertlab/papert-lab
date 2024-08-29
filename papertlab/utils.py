@@ -392,4 +392,21 @@ def get_available_models():
             "gpt-4-1106-preview",
             "gpt-3.5-turbo",
         ])
+    if 'GEMINI_API_KEY' in os.environ:
+        models.extend([
+            "gemini-1.5-pro",
+            "gemini-1.5-pro-latest",
+        ])
+    if 'GROQ_API_KEY' in os.environ:
+        models.extend([
+            "llama3-70b-8192",
+        ])
+    if 'OLLAMA_API_BASE' in os.environ:
+        models.extend([
+            "ollama",
+        ])
+    if 'COHERE_API_KEY' in os.environ:
+        models.extend([
+            "command-r-plus",
+        ])
     return models

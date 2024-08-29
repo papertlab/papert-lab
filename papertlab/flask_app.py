@@ -88,11 +88,13 @@ def handle_recursion_error(func):
 # API endpoint to get the current API keys
 @app.route('/api/get_api_keys', methods=['GET'])
 def get_api_keys():
-    openai_api_key = os.getenv('OPENAI_API_KEY', '')
-    anthropic_api_key = os.getenv('ANTHROPIC_API_KEY', '')
     return jsonify({
-        'openai_api_key': openai_api_key,
-        'anthropic_api_key': anthropic_api_key
+        'openai_api_key': os.getenv('OPENAI_API_KEY', ''),
+        'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY', ''),
+        'gemini_api_key': os.getenv('GEMINI_API_KEY', ''),
+        'groq_api_key': os.getenv('GROQ_API_KEY', ''),
+        'ollama_api_base': os.getenv('OLLAMA_API_BASE', ''),
+        'cohere_api_key': os.getenv('COHERE_API_KEY', '')
     })
 
 @app.route('/', defaults={'path': ''})
@@ -597,13 +599,18 @@ def update_file():
 @app.route('/api/set_api_key', methods=['POST'])
 def set_api_key():
     data = request.json
-    openai_key = data.get('openai_key')
-    anthropic_key = data.get('anthropic_key')
-
-    if openai_key and openai_key != '':
-        os.environ['OPENAI_API_KEY'] = openai_key
-    if anthropic_key and anthropic_key != '':
-        os.environ['ANTHROPIC_API_KEY'] = anthropic_key
+    api_keys = {
+        'OPENAI_API_KEY': data.get('openai_key'),
+        'ANTHROPIC_API_KEY': data.get('anthropic_key'),
+        'GEMINI_API_KEY': data.get('gemini_key'),
+        'GROQ_API_KEY': data.get('groq_key'),
+        'OLLAMA_API_BASE': data.get('ollama_base'),
+        'COHERE_API_KEY': data.get('cohere_key')
+    }
+    
+    for key, value in api_keys.items():
+        if value and value != '':
+            os.environ[key] = value
     
     return jsonify({"success": True})
 

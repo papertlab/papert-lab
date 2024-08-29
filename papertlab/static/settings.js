@@ -8,30 +8,24 @@ const Notification = ({ message, show }) => {
     );
 };
 
-const APISettings = ({ openAiKey, setOpenAiKey, anthropicKey, setAnthropicKey, handleSave }) => (
+const APISettings = ({ apiKeys, setApiKeys, handleSave }) => (
     <div className="p-6">
         <h2 className="text-xl font-bold mb-4">API Keys</h2>
         <div className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium mb-2">OpenAI API Key</label>
-                <input
-                    type="text"
-                    value={openAiKey}
-                    onChange={(e) => setOpenAiKey(e.target.value)}
-                    className="w-full p-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-green-500"
-                    placeholder="Enter your OpenAI API Key"
-                />
-            </div>
-            <div>
-                <label className="block text-sm font-medium mb-2">Anthropic API Key</label>
-                <input
-                    type="text"
-                    value={anthropicKey}
-                    onChange={(e) => setAnthropicKey(e.target.value)}
-                    className="w-full p-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-green-500"
-                    placeholder="Enter your Anthropic API Key"
-                />
-            </div>
+            {apiKeys && Object.entries(apiKeys).map(([key, value]) => (
+                <div key={key}>
+                    <label className="block text-sm font-medium mb-2">
+                        {key.charAt(0).toUpperCase() + key.slice(1)} API Key
+                    </label>
+                    <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => setApiKeys({...apiKeys, [key]: e.target.value})}
+                        className="w-full p-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-green-500"
+                        placeholder={`Enter your ${key} API Key`}
+                    />
+                </div>
+            ))}
             <button
                 onClick={handleSave}
                 className="bg-green-700 text-black px-4 py-2 rounded hover:bg-green-600"
@@ -42,6 +36,7 @@ const APISettings = ({ openAiKey, setOpenAiKey, anthropicKey, setAnthropicKey, h
     </div>
 );
 
+
 const UsageReport = () => {
     const [usageData, setUsageData] = React.useState([]);
     const [currentPage, setCurrentPage] = React.useState(1);
@@ -49,6 +44,14 @@ const UsageReport = () => {
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
     const itemsPerPage = 10;
+    const [apiKeys, setApiKeys] = React.useState({
+        openai: '',
+        anthropic: '',
+        gemini: '',
+        groq: '',
+        ollama: '',
+        cohere: ''
+    });
 
     React.useEffect(() => {
         fetchUsageData(currentPage);
@@ -164,11 +167,16 @@ const ConfigSettings = ({ autoCommit, setAutoCommit, handleSave }) => (
 
 
 const Settings = () => {
-    const [openAiKey, setOpenAiKey] = React.useState('');
-    const [anthropicKey, setAnthropicKey] = React.useState('');
+    const [apiKeys, setApiKeys] = React.useState({
+        openai: '',
+        anthropic: '',
+        gemini: '',
+        groq: '',
+        ollama: '',
+        cohere: ''
+    });
     const [currentView, setCurrentView] = React.useState('api');
     const [autoCommit, setAutoCommit] = React.useState(true);
-    const [currentConfigView, setCurrentConfigView] = React.useState('git');
     const [notification, setNotification] = React.useState({ show: false, message: '' });
 
     React.useEffect(() => {
@@ -176,8 +184,14 @@ const Settings = () => {
             try {
                 const response = await fetch('/api/get_api_keys');
                 const data = await response.json();
-                setOpenAiKey(data.openai_api_key);
-                setAnthropicKey(data.anthropic_api_key);
+                setApiKeys({
+                    openai: data.openai_api_key || '',
+                    anthropic: data.anthropic_api_key || '',
+                    gemini: data.gemini_api_key || '',
+                    groq: data.groq_api_key || '',
+                    ollama: data.ollama_api_base || '',
+                    cohere: data.cohere_api_key || ''
+                });
             } catch (error) {
                 console.error('Error fetching API keys:', error);
             }
@@ -210,7 +224,14 @@ const Settings = () => {
             const response = await fetch('/api/set_api_key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ openai_key: openAiKey, anthropic_key: anthropicKey })
+                body: JSON.stringify({
+                    openai_key: apiKeys.openai,
+                    anthropic_key: apiKeys.anthropic,
+                    gemini_key: apiKeys.gemini,
+                    groq_key: apiKeys.groq,
+                    ollama_base: apiKeys.ollama,
+                    cohere_key: apiKeys.cohere
+                })
             });
             const data = await response.json();
             if (data.success) {
@@ -277,13 +298,11 @@ const Settings = () => {
             {/* Right Content Area */}
             <div className="flex-grow">
                 {currentView === 'api' && (
-                    <APISettings
-                        openAiKey={openAiKey}
-                        setOpenAiKey={setOpenAiKey}
-                        anthropicKey={anthropicKey}
-                        setAnthropicKey={setAnthropicKey}
-                        handleSave={handleSave}
-                    />
+                      <APISettings
+                      apiKeys={apiKeys}
+                      setApiKeys={setApiKeys}
+                      handleSave={handleSave}
+                  />
                 )}
                 {currentView === 'usage' && <UsageReport />}
                 {currentView === 'config' && (
