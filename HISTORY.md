@@ -1,6 +1,16 @@
 
 # Release history
 
+### PapertLab v1.1.3
+- Ollama support added
+- Cohere Models support added
+- Gemini Model support added
+- Groq Model support added
+- Editor Redesigned
+- Model refresh Bug issued
+- save file option added in the editor
+- token and cost management bug fixed
+
 ### PapertLab v1.1.2
 - Inline AI code editor added
 - Autocommit config added in setting page
