@@ -27,6 +27,7 @@ from papertlab.io import InputOutput
 from papertlab.commands import SwitchCoder
 from papertlab.utils import extract_updated_code, execute_command, get_available_models
 from papertlab.sql_utils import get_auto_commit_db_status, save_auto_commit_db, get_usage_data_db, get_monthly_usage_db, get_latest_usage_db, store_project_usage_db
+from papertlab.models import DEFAULT_MODEL_NAME
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -40,8 +41,6 @@ last_file_structure_hash = None
 initialization_complete = False
 initialization_thread = None
 
-
-DEFAULT_MODEL = "claude-3-5-sonnet-20240620" if 'ANTHROPIC_API_KEY' in os.environ else "gpt-4o"
 coder = None
 coder_lock = threading.Lock()
 
@@ -177,7 +176,9 @@ def initialize_coder():
 
         if not isinstance(coder, Coder):
             raise ValueError("Failed to initialize Coder")
-        coder.main_model = models.Model(DEFAULT_MODEL)
+        # Use the current_model if it's set, otherwise use DEFAULT_MODEL
+        model_to_use = current_model or get_available_models()[0] if len(get_available_models()) >= 1 else DEFAULT_MODEL_NAME
+        coder.main_model = models.Model(model_to_use)
         print("Coder initialized successfully")
     except Exception as e:
         print(f"Error initializing Coder: {str(e)}")
@@ -205,7 +206,7 @@ def get_initialization_status():
         "files": get_file_structure(coder.get_all_relative_files()) if initialization_complete else {},
         "initial_chat_files": coder.get_inchat_relative_files() if initialization_complete else [],
         "models": get_available_models(),
-        "current_model": current_model or DEFAULT_MODEL
+        "current_model": current_model or get_available_models()[0] if len(get_available_models()) >= 1 else DEFAULT_MODEL_NAME
     })
 
 # Modify your existing routes to check for initialization
@@ -281,6 +282,10 @@ def get_monthly_usage():
         print(f"Error in get_monthly_usage: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+def update_current_model(model_name):
+    global current_model
+    current_model = model_name
+
 @app.route('/api/set_model', methods=['PUT'])
 def set_model():
     global coder, current_model
@@ -295,19 +300,21 @@ def set_model():
             return jsonify({"error": "Coder not initialized"}), 500
 
         try:
+            update_current_model(new_model)
+            coder.main_model = models.Model(new_model)
             # Create a new coder instance with the new model
-            new_coder = cli_main(return_coder=True)
-            new_coder.main_model = models.Model(new_model)
+            # new_coder = cli_main(return_coder=True)
+            # new_coder.main_model = models.Model(new_model)
             
-            # Copy over relevant state from the old coder
-            new_coder.abs_fnames = coder.abs_fnames
-            new_coder.cur_messages = coder.cur_messages
-            new_coder.done_messages = coder.done_messages
+            # # Copy over relevant state from the old coder
+            # new_coder.abs_fnames = coder.abs_fnames
+            # new_coder.cur_messages = coder.cur_messages
+            # new_coder.done_messages = coder.done_messages
             
-            # Replace the old coder with the new one
-            coder = new_coder
+            # # Replace the old coder with the new one
+            # coder = new_coder
 
-            current_model = new_model  
+            # current_model = new_model  
             
             # Get updated announcements and files
             announcements = coder.get_announcements()
@@ -391,7 +398,7 @@ def chat():
             print("Error: Coder not initialized")
             return jsonify({"error": "Coder not initialized"}), 500
 
-    model = data.get('model') or current_model or DEFAULT_MODEL
+    model = data.get('model') or current_model or get_available_models()[0] if len(get_available_models()) >= 1 else DEFAULT_MODEL_NAME
     command = data.get('command', 'code')
     message = data.get('message', '')
     selected_code = data.get('selectedCode', '')

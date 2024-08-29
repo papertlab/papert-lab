@@ -257,7 +257,7 @@ window.Editor = ({ file, content, onClose, onSave }) => {
                     </button>
                 </div>
             </div>
-            <div className="flex-grow overflow-hidden">
+            <div className="flex-grow overflow-hidden z-10">
                 <textarea
                     ref={editorRef}
                     defaultValue={content}
