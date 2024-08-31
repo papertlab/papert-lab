@@ -481,11 +481,6 @@ def chat():
             completion_message = f"{command.capitalize()} command completed.\n"
             yield f"data: {json.dumps({'chunk': completion_message})}\n\n"
 
-            # After the command completion, automatically apply changes if necessary
-            if command == 'code':
-                temp_coder.apply_updates()
-                yield f"data: {json.dumps({'chunk': 'Changes applied automatically\n'})}\n\n"
-
             # Update file structure after changes
             updated_files = get_file_structure(temp_coder.get_all_relative_files())
             yield f"data: {json.dumps({'updated_files': updated_files})}\n\n"
