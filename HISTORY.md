@@ -10,6 +10,8 @@
 - Model refresh Bug issued
 - save file option added in the editor
 - token and cost management bug fixed
+- fixed duplicated changes apply
+- added custom port number to flask
 
 ### PapertLab v1.1.2
 - Inline AI code editor added
