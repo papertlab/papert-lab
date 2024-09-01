@@ -8,13 +8,17 @@ from pathlib import Path
 import git
 
 from papertlab.dump import dump  # noqa: F401
+from papertlab.run_cmd import run_cmd
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp"}
 
 
 class IgnorantTemporaryDirectory:
     def __init__(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
+        if sys.version_info >= (3, 10):
+            self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        else:
+            self.temp_dir = tempfile.TemporaryDirectory()
 
     def __enter__(self):
         return self.temp_dir.__enter__()
@@ -25,7 +29,7 @@ class IgnorantTemporaryDirectory:
     def cleanup(self):
         try:
             self.temp_dir.cleanup()
-        except (OSError, PermissionError):
+        except (OSError, PermissionError, RecursionError):
             pass  # Ignore errors (Windows)
 
     def __getattr__(self, item):
@@ -266,23 +270,42 @@ class Spinner:
         if self.visible:
             print("\r" + " " * (len(self.text) + 3))
 
+def find_common_root(abs_fnames):
+    if len(abs_fnames) == 1:
+        return safe_abs_path(os.path.dirname(list(abs_fnames)[0]))
+    elif abs_fnames:
+        return safe_abs_path(os.path.commonpath(list(abs_fnames)))
+    else:
+        return safe_abs_path(os.getcwd())
+
+def format_tokens(count):
+    if count < 1000:
+        return f"{count}"
+    elif count < 10000:
+        return f"{count / 1000:.1f}k"
+    else:
+        return f"{round(count / 1000)}k"
+
 def check_pip_install_extra(io, module, prompt, pip_install_cmd):
-    try:
-        __import__(module)
-        return True
-    except (ImportError, ModuleNotFoundError):
-        pass
+    if module:
+        try:
+            __import__(module)
+            return True
+        except (ImportError, ModuleNotFoundError):
+            pass
 
     cmd = get_pip_install(pip_install_cmd)
 
-    text = f"{prompt}:\n\n{' '.join(cmd)}\n"
-    io.tool_error(text)
+    if prompt:
+        io.tool_error(prompt)
 
-    if not io.confirm_ask("Run pip install?", default="y"):
+    if not io.confirm_ask("Run pip install?", default="y", subject=" ".join(cmd)):
         return
 
     success, output = run_install(cmd)
     if success:
+        if not module:
+            return
         try:
             __import__(module)
             return True
@@ -413,3 +436,13 @@ def get_available_models():
             "command-r-plus",
         ])
     return models
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        command = " ".join(sys.argv[1:])
+        exit_status, output = run_cmd(command)
+        dump(exit_status)
+        dump(output)
+    else:
+        print("Usage: python -m papertlab.utils <command>")
+        sys.exit(1)

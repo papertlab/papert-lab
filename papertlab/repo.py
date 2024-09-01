@@ -11,6 +11,9 @@ from papertlab.sendchat import simple_send_with_retries
 from .dump import dump  # noqa: F401
 
 
+class UnableToCountRepoFiles(Exception):
+    pass
+
 class GitRepo:
     repo = None
     papertlab_ignore_file = None
@@ -223,7 +226,9 @@ class GitRepo:
             max_tokens = model.info.get("max_input_tokens") or 0
             if max_tokens and num_tokens > max_tokens:
                 continue
-            commit_message = simple_send_with_retries(model.name, messages)
+            commit_message = simple_send_with_retries(
+                model.name, messages, extra_headers=model.extra_headers
+            )
             if commit_message:
                 break
 
@@ -289,31 +294,35 @@ class GitRepo:
             return []
 
         try:
-            commit = self.repo.head.commit
-        except ValueError:
-            commit = None
+            try:
+                commit = self.repo.head.commit
+            except ValueError:
+                commit = None
 
-        files = set()
-        if commit:
-            if commit in self.tree_files:
-                files = self.tree_files[commit]
-            else:
-                for blob in commit.tree.traverse():
-                    if blob.type == "blob":  # blob is a file
-                        files.add(blob.path)
-                files = set(self.normalize_path(path) for path in files)
-                self.tree_files[commit] = set(files)
+            files = set()
+            if commit:
+                if commit in self.tree_files:
+                    files = self.tree_files[commit]
+                else:
+                    for blob in commit.tree.traverse():
+                        if blob.type == "blob":  # blob is a file
+                            files.add(blob.path)
+                    files = set(self.normalize_path(path) for path in files)
+                    self.tree_files[commit] = set(files)
 
-        # Add staged files
-        index = self.repo.index
-        staged_files = [path for path, _ in index.entries.keys()]
+            # Add staged files
+            index = self.repo.index
+            staged_files = [path for path, _ in index.entries.keys()]
 
-        files.update(self.normalize_path(path) for path in staged_files)
+            files.update(self.normalize_path(path) for path in staged_files)
 
-        # convert to appropriate os.sep, since git always normalizes to /
-        res = [fname for fname in files if not self.ignored_file(fname)]
+            # convert to appropriate os.sep, since git always normalizes to /
+            res = [fname for fname in files if not self.ignored_file(fname)]
 
-        return res
+            return res
+        except Exception as e:
+            raise UnableToCountRepoFiles(f"Error getting tracked files: {str(e)}")
+    
 
     def normalize_path(self, path):
         orig_path = path

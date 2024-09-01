@@ -9,11 +9,12 @@ from pathlib import Path
 import git
 import pyperclip
 from PIL import Image, ImageGrab
-from rich.text import Text
 
 from papertlab import models, prompts, voice
+from papertlab.format_settings import format_settings
 from papertlab.help import Help, install_help_extra
 from papertlab.llm import litellm
+from papertlab.run_cmd import run_cmd
 from papertlab.scrape import Scraper, install_playwright
 from papertlab.utils import is_image_file
 
@@ -35,9 +36,21 @@ class Commands:
     voice = None
     scraper = None
 
-    def __init__(self, io, coder, voice_language=None, verify_ssl=True):
+    def clone(self):
+        return Commands(
+            self.io,
+            None,
+            voice_language=self.voice_language,
+            verify_ssl=self.verify_ssl,
+            args=self.args,
+            parser=self.parser,
+        )
+
+    def __init__(self, io, coder, voice_language=None, verify_ssl=True, args=None, parser=None):
         self.io = io
         self.coder = coder
+        self.parser = parser
+        self.args = args
 
         self.verify_ssl = verify_ssl
         if voice_language == "auto":
@@ -125,8 +138,8 @@ class Commands:
         else:
             self.io.tool_output("Please provide a partial model name to search for.")
 
-    def cmd_web(self, args, paginate=True):
-        "Scrape a webpage, convert to markdown and add to the chat"
+    def cmd_web(self, args):
+        "Scrape a webpage, convert to markdown and send in a message"
         url = args.strip()
         if not url:
             self.io.tool_error("Please provide a URL to scrape.")
@@ -150,10 +163,6 @@ class Commands:
 
         self.io.tool_output("... done.")
 
-        if paginate:
-            with self.io.console.pager():
-                self.io.console.print(Text(content))
-
         return content
 
     def is_command(self, inp):
@@ -163,6 +172,7 @@ class Commands:
         assert cmd.startswith("/")
         cmd = cmd[1:]
 
+        cmd = cmd.replace("-", "_")
         fun = getattr(self, f"completions_{cmd}", None)
         if not fun:
             return
@@ -239,7 +249,7 @@ class Commands:
         self.coder.repo.commit(message=commit_message)
 
     def cmd_lint(self, args="", fnames=None):
-        "Lint and fix provided files or in-chat files if none provided"
+        "Lint and fix in-chat files or all dirty files if none in chat"
 
         if not self.coder.repo:
             self.io.tool_error("No git repository found.")
@@ -275,7 +285,7 @@ class Commands:
                 continue
 
             # Commit everything before we start fixing lint errors
-            if self.coder.repo.is_dirty():
+            if self.coder.repo.is_dirty() and self.coder.dirty_commits:
                 self.cmd_commit("")
 
             if not lint_coder:
@@ -290,14 +300,27 @@ class Commands:
             lint_coder.run(errors)
             lint_coder.abs_fnames = set()
 
-        if lint_coder and self.coder.repo.is_dirty():
+        if lint_coder and self.coder.repo.is_dirty() and self.coder.auto_commits:
             self.cmd_commit("")
 
     def cmd_clear(self, args):
         "Clear the chat history"
 
+        self._clear_chat_history()
+
+    def _drop_all_files(self):
+        self.coder.abs_fnames = set()
+        self.coder.abs_read_only_fnames = set()
+
+    def _clear_chat_history(self):
         self.coder.done_messages = []
         self.coder.cur_messages = []
+
+    def cmd_reset(self, args):
+        "Drop all files and clear the chat history"
+        self._drop_all_files()
+        self._clear_chat_history()
+        self.io.tool_output("All files dropped and chat history cleared.")
 
     def cmd_tokens(self, args):
         "Report on the number of tokens used by the current chat context"
@@ -513,7 +536,7 @@ class Commands:
             fname = f'"{fname}"'
         return fname
     
-    def completions_read(self):
+    def completions_read_only(self):
         return self.completions_add()
 
     def completions_add(self):
@@ -523,6 +546,8 @@ class Commands:
         return files
 
     def glob_filtered_to_repo(self, pattern):
+        if not pattern:
+            return []
         try:
             if os.path.isabs(pattern):
                 # Handle absolute paths
@@ -538,9 +563,9 @@ class Commands:
             matched_files += expand_subdir(fn)
 
         matched_files = [
-            str(Path(fn).relative_to(self.coder.root))
+            fn.relative_to(self.coder.root)
             for fn in matched_files
-            if Path(fn).is_relative_to(self.coder.root)
+            if fn.is_relative_to(self.coder.root)
         ]
 
         # if repo, filter against it
@@ -553,8 +578,6 @@ class Commands:
 
     def cmd_add(self, args):
         "Add files to the chat so GPT can edit them or review them in detail"
-
-        added_fnames = []
 
         all_matched_files = set()
 
@@ -581,15 +604,24 @@ class Commands:
                 all_matched_files.update(matched_files)
                 continue
 
+            if "*" in str(fname) or "?" in str(fname):
+                self.io.tool_error(
+                    f"No match, and cannot create file with wildcard characters: {fname}"
+                )
+                continue
+
+            if fname.exists() and fname.is_dir() and self.coder.repo:
+                self.io.tool_error(f"Directory {fname} is not in git.")
+                self.io.tool_error(f"You can add to git with: /git add {fname}")
+                continue
+
             if self.io.confirm_ask(f"No files matched '{word}'. Do you want to create {fname}?"):
-                if "*" in str(fname) or "?" in str(fname):
-                    self.io.tool_error(f"Cannot create file with wildcard characters: {fname}")
-                else:
-                    try:
-                        fname.touch()
-                        all_matched_files.add(str(fname))
-                    except OSError as e:
-                        self.io.tool_error(f"Error creating file {fname}: {e}")
+            
+                try:
+                    fname.touch()
+                    all_matched_files.add(str(fname))
+                except OSError as e:
+                    self.io.tool_error(f"Error creating file {fname}: {e}")
 
         for matched_file in all_matched_files:
             abs_file_path = self.coder.abs_root_path(matched_file)
@@ -609,7 +641,7 @@ class Commands:
                     self.io.tool_output(
                         f"Moved {matched_file} from read-only to editable files in the chat"
                     )
-                    added_fnames.append(matched_file)
+                    
                 else:
                     self.io.tool_error(
                         f"Cannot add {matched_file} as it's not part of the repository"
@@ -618,8 +650,7 @@ class Commands:
                 if is_image_file(matched_file) and not self.coder.main_model.accepts_images:
                     self.io.tool_error(
                         f"Cannot add image file {matched_file} as the"
-                        f" {self.coder.main_model.name} does not support image.\nYou can run `papertlab"
-                        " --4-turbo-vision` to use GPT-4 Turbo with Vision."
+                        f" {self.coder.main_model.name} does not support images."
                     )
                     continue
                 content = self.io.read_text(abs_file_path)
@@ -629,7 +660,7 @@ class Commands:
                     self.coder.abs_fnames.add(abs_file_path)
                     self.io.tool_output(f"Added {matched_file} to the chat")
                     self.coder.check_added_files()
-                    added_fnames.append(matched_file)
+                    
 
     def completions_drop(self):
         files = self.coder.get_inchat_relative_files()
@@ -643,24 +674,24 @@ class Commands:
 
         if not args.strip():
             self.io.tool_output("Dropping all files from the chat session.")
-            self.coder.abs_fnames = set()
-            self.coder.abs_read_only_fnames = set()
+            self._drop_all_files()
             return
 
         filenames = parse_quoted_filenames(args)
         for word in filenames:
+            expanded_word = os.path.expanduser(word)
             # Handle read-only files separately, without glob_filtered_to_repo
-            read_only_matched = [f for f in self.coder.abs_read_only_fnames if word in f]
+            read_only_matched = [f for f in self.coder.abs_read_only_fnames if expanded_word in f]
 
             if read_only_matched:
                 for matched_file in read_only_matched:
                     self.coder.abs_read_only_fnames.remove(matched_file)
                     self.io.tool_output(f"Removed read-only file {matched_file} from the chat")
 
-            matched_files = self.glob_filtered_to_repo(word)
+            matched_files = self.glob_filtered_to_repo(expanded_word)
 
             if not matched_files:
-                matched_files.append(word)
+                matched_files.append(expanded_word)
 
             for matched_file in matched_files:
                 abs_fname = self.coder.abs_root_path(matched_file)
@@ -711,33 +742,20 @@ class Commands:
 
     def cmd_run(self, args, add_on_nonzero_exit=False):
         "Run a shell command and optionally add the output to the chat (alias: !)"
-        combined_output = None
+        exit_status, combined_output = run_cmd(args)
         instructions = None
-        try:
-            result = subprocess.run(
-                args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                shell=True,
-                encoding=self.io.encoding,
-                errors="replace",
-            )
-            combined_output = result.stdout
-        except Exception as e:
-            self.io.tool_error(f"Error running command: {e}")
 
         if combined_output is None:
             return
 
-        self.io.tool_output(combined_output)
-
         if add_on_nonzero_exit:
-            add = result.returncode != 0
+            add = exit_status != 0
         else:
+            self.io.tool_output()
             response = self.io.prompt_ask(
-                "Add the output to the chat?\n(Y/n/instructions)", default=""
+                "Add the output to the chat?\n(Y)es/(n)o/message with instructions:",
             ).strip()
+            self.io.tool_output()
 
             if response.lower() in ["yes", "y"]:
                 add = True
@@ -746,6 +764,9 @@ class Commands:
             else:
                 add = True
                 instructions = response
+                if response.strip():
+                    self.io.user_input(response, log_only=True)
+                    self.io.add_to_input_history(response)
 
         if add:
             for line in combined_output.splitlines():
@@ -872,14 +893,6 @@ class Commands:
             map_tokens=map_tokens,
             map_mul_no_files=map_mul_no_files,
             show_announcements=False,
-        )
-
-    def clone(self):
-        return Commands(
-            self.io,
-            None,
-            voice_language=self.voice_language,
-            verify_ssl=self.verify_ssl,
         )
 
     def cmd_ask(self, args):
@@ -1043,28 +1056,42 @@ class Commands:
         except Exception as e:
             self.io.tool_error(f"Error processing clipboard content: {e}")
 
-    def cmd_read(self, args):
-        "Add a file to the chat that is for reference, not to be edited"
+    def cmd_read_only(self, args):
+        "Add files to the chat that are for reference, not to be edited"
         if not args.strip():
-            self.io.tool_error("Please provide a filename to read.")
+            self.io.tool_error("Please provide filenames to read.")
             return
 
-        filename = args.strip()
-        abs_path = os.path.abspath(filename)
+        filenames = parse_quoted_filenames(args)
+        for word in filenames:
+            # Expand the home directory if the path starts with "~"
+            expanded_path = os.path.expanduser(word)
+            abs_path = self.coder.abs_root_path(expanded_path)
 
-        if not os.path.exists(abs_path):
-            self.io.tool_error(f"File not found: {abs_path}")
-            return
+            if not os.path.exists(abs_path):
+                self.io.tool_error(f"File not found: {abs_path}")
+                continue
 
-        if not os.path.isfile(abs_path):
-            self.io.tool_error(f"Not a file: {abs_path}")
-            return
+            if not os.path.isfile(abs_path):
+                self.io.tool_error(f"Not a file: {abs_path}")
+                continue
 
-        if self.coder.repo and self.coder.repo.is_readonly(filename):
-            self.io.tool_output(f"{filename} is already marked as read-only in .papertlab_readonly")
-        else:
+            if abs_path in self.coder.abs_fnames:
+                self.io.tool_error(f"{word} is already in the chat as an editable file")
+                continue
+
+            if abs_path in self.coder.abs_read_only_fnames:
+                self.io.tool_error(f"{word} is already in the chat as a read-only file")
+                continue
+
+            if self.coder.repo and self.coder.repo.is_readonly(word):
+                self.io.tool_output(f"{word} is already marked as read-only in .papertlab_readonly")
+            else:
+                self.coder.abs_read_only_fnames.add(abs_path)
+                self.io.tool_output(f"Added {abs_path} to read-only files.")
+
             self.coder.abs_read_only_fnames.add(abs_path)
-            self.io.tool_output(f"Added {abs_path} to read-only files.")
+            self.io.tool_output(f"Added {word} to read-only files.")
 
     def cmd_map(self, args):
         "Print out the current repository map"
@@ -1074,8 +1101,18 @@ class Commands:
         else:
             self.io.tool_output("No repository map available.")
 
+    def cmd_map_refresh(self, args):
+        "Force a refresh of the repository map"
+        repo_map = self.coder.get_repo_map(force_refresh=True)
+        if repo_map:
+            self.io.tool_output("The repo map has been refreshed, use /map to view it.")
+
+    def cmd_settings(self, args):
+        "Print out the current settings"
+        settings = format_settings(self.parser, self.args)
+        self.io.tool_output(settings)
+
 def expand_subdir(file_path):
-    file_path = Path(file_path)
     if file_path.is_file():
         yield file_path
         return
@@ -1083,7 +1120,7 @@ def expand_subdir(file_path):
     if file_path.is_dir():
         for file in file_path.rglob("*"):
             if file.is_file():
-                yield str(file)
+                yield file
 
 
 def parse_quoted_filenames(args):

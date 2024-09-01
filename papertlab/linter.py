@@ -76,7 +76,7 @@ class Linter:
 
     def lint(self, fname, cmd=None):
         rel_fname = self.get_rel_fname(fname)
-        code = Path(fname).read_text(self.encoding)
+        code = Path(fname).read_text(encoding=self.encoding, errors="replace")
 
         if cmd:
             cmd = cmd.strip()

@@ -204,7 +204,31 @@ def get_parser(default_config_files, git_root):
         "--map-tokens",
         type=int,
         default=None,
-        help="Max number of tokens to use for repo map, use 0 to disable (default: 1024)",
+        help="Suggested number of tokens to use for repo map, use 0 to disable (default: 1024)",
+    )
+    group.add_argument(
+        "--map-refresh",
+        choices=["auto", "always", "files", "manual"],
+        default="auto",
+        help="Control how often the repo map is refreshed (default: auto)",
+    )
+    group.add_argument(
+        "--cache-prompts",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Enable caching of prompts (default: False)",
+    )
+    group.add_argument(
+        "--cache-keepalive-pings",
+        type=int,
+        default=0,
+        help="Number of times to ping at 5min intervals to keep prompt cache warm (default: 0)",
+    )
+    group.add_argument(
+        "--map-multiplier-no-files",
+        type=float,
+        default=2,
+        help="Multiplier for map tokens when no files are specified (default: 2)",
     )
     group.add_argument(
         "--max-chat-history-tokens",
@@ -479,6 +503,19 @@ def get_parser(default_config_files, git_root):
         default=True,
     )
     group.add_argument(
+        "--install-main-branch",
+        action="store_true",
+        help="Install the latest version from the main branch",
+        default=False,
+    )
+    group.add_argument(
+        "--upgrade",
+        "--update",
+        action="store_true",
+        help="Upgrade aider to the latest version from PyPI",
+        default=False,
+    )
+    group.add_argument(
         "--apply",
         metavar="FILE",
         help="Apply the changes from the given file instead of running the chat (debug)",
@@ -546,6 +583,12 @@ def get_parser(default_config_files, git_root):
             "Specify the config file (default: search for .papertlab.conf.yml in git root, cwd"
             " or home directory)"
         ),
+    )
+    group.add_argument(
+        "--suggest-shell-commands",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable suggesting shell commands (default: True)",
     )
 
 

@@ -12,14 +12,6 @@ class WholeFileCoder(Coder):
     edit_format = "whole"
     gpt_prompts = WholeFilePrompts()
 
-    def update_cur_messages(self, edited):
-        if edited:
-            self.cur_messages += [
-                dict(role="assistant", content=self.gpt_prompts.redacted_edit_message)
-            ]
-        else:
-            self.cur_messages += [dict(role="assistant", content=self.partial_response_content)]
-
     def render_incremental_response(self, final):
         try:
             return self.get_edits(mode="diff")
@@ -65,6 +57,9 @@ class WholeFileCoder(Coder):
                     fname = fname.strip("*")  # handle **filename.py**
                     fname = fname.rstrip(":")
                     fname = fname.strip("`")
+
+                    if len(fname) > 250:
+                        fname = ""
 
                     # Did gpt prepend a bogus dir? It especially likes to
                     # include the path/to prefix from the one-shot example in

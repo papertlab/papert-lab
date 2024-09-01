@@ -14,12 +14,14 @@ from papertlab.args import get_parser
 from papertlab.agents import Coder
 from papertlab.agents.base_coder import DB_PATH
 from papertlab.commands import Commands, SwitchCoder
+from papertlab.format_settings import format_settings, scrub_sensitive_info
 from papertlab.history import ChatSummary
 from papertlab.io import InputOutput
 from papertlab.llm import litellm  # noqa: F401; properly init litellm on launch
-from papertlab.repo import GitRepo
+from papertlab.repo import GitRepo, UnableToCountRepoFiles
+from papertlab.report import report_uncaught_exceptions
 from papertlab.utils import create_papertlabignore, create_papertlab_readonly
-from papertlab.versioncheck import check_version
+from papertlab.versioncheck import check_version, install_from_main_branch, install_upgrade
 from papertlab.sql_utils import init_db
 from .dump import dump  # noqa: F401
 
@@ -51,16 +53,29 @@ def guessed_wrong_repo(io, git_root, fnames, git_dname):
 
     return str(check_repo)
 
+def make_new_repo(git_root, io):
+    try:
+        repo = git.Repo.init(git_root)
+        check_gitignore(git_root, io, False)
+    except git.exc.GitCommandError as err:  # issue #1233
+        io.tool_error(f"Unable to create git repo in {git_root}")
+        io.tool_error(str(err))
+        return
+
+    io.tool_output(f"Git repository created in {git_root}")
+    return repo
 
 def setup_git(git_root, io):
     repo = None
+
     if git_root:
         repo = git.Repo(git_root)
-    elif io.confirm_ask("No git repo found, create one to track GPT's changes (recommended)?"):
+    elif Path.cwd() == Path.home():
+        io.tool_error("You should probably run papertlab in a directory, not your home dir.")
+        return
+    elif io.confirm_ask("No git repo found, create one to track papertlab's changes (recommended)?"):
         git_root = str(Path.cwd().resolve())
-        repo = git.Repo.init(git_root)
-        io.tool_output("Git repository created in the current working directory.")
-        check_gitignore(git_root, io, False)
+        repo = make_new_repo(git_root, io)
 
     if not repo:
         return
@@ -129,47 +144,6 @@ def check_gitignore(git_root, io, ask=True):
     io.write_text(gitignore_file, content)
 
     io.tool_output(f"Added {pat}, {pat_cache} and {pat_db} to .gitignore")
-
-
-def format_settings(parser, args):
-    show = scrub_sensitive_info(args, parser.format_values())
-    # clean up the headings for consistency w/ new lines
-    heading_env = "Environment Variables:"
-    heading_defaults = "Defaults:"
-    if heading_env in show:
-        show = show.replace(heading_env, "\n" + heading_env)
-        show = show.replace(heading_defaults, "\n" + heading_defaults)
-    show += "\n"
-    show += "Option settings:\n"
-    for arg, val in sorted(vars(args).items()):
-        if val:
-            val = scrub_sensitive_info(args, str(val))
-        show += f"  - {arg}: {val}\n"  # noqa: E221
-    return show
-
-
-def scrub_sensitive_info(args, text):
-    # Replace sensitive information with last 4 characters
-    if text and args.openai_api_key:
-        last_4 = args.openai_api_key[-4:]
-        text = text.replace(args.openai_api_key, f"...{last_4}")
-    if text and args.anthropic_api_key:
-        last_4 = args.anthropic_api_key[-4:]
-        text = text.replace(args.anthropic_api_key, f"...{last_4}")
-    return text
-
-
-def check_streamlit_install(io):
-    return utils.check_pip_install_extra(
-        io,
-        "streamlit",
-        "You need to install the papertlab browser feature",
-        ["papert-lab[browser]"],
-    )
-
-
-
-    # Commented out code remains unchanged
 
 
 def parse_lint_cmds(lint_cmds, io):
@@ -277,7 +251,30 @@ def register_litellm_models(git_root, model_metadata_fname, io, verbose=False):
         io.tool_error(f"Error loading model metadata models: {e}")
         return 1
 
+def sanity_check_repo(repo, io):
+    if not repo:
+        return True
+
+    try:
+        repo.get_tracked_files()
+        return True
+    except UnableToCountRepoFiles as exc:
+        error_msg = str(exc)
+
+        if "version in (1, 2)" in error_msg:
+            io.tool_error("Papertlab only works with git repos with version number 1 or 2.")
+            io.tool_error(
+                "You may be able to convert your repo: git update-index --index-version=2"
+            )
+            io.tool_error("Or run papertlab --no-git to proceed without using git.")
+            return False
+
+        io.tool_error("Unable to read git repository, it may be corrupt?")
+        io.tool_error(error_msg)
+        return False
+    
 def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
+    report_uncaught_exceptions()
 
     init_db(DB_PATH)
     
@@ -409,6 +406,14 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if args.just_check_update:
         update_available = check_version(io, just_check=True, verbose=args.verbose)
         return 0 if not update_available else 1
+    
+    if args.install_main_branch:
+        success = install_from_main_branch(io)
+        return 0 if success else 1
+
+    if args.upgrade:
+        success = install_upgrade(io)
+        return 0 if success else 1
 
     if args.check_update:
         check_version(io, verbose=args.verbose)
@@ -454,12 +459,24 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     main_model = models.Model(args.model, weak_model=args.weak_model)
 
+    if args.verbose:
+        io.tool_output("Model info:")
+        for key, value in main_model.info.items():
+            io.tool_output(f"  {key}: {value}")
+
     lint_cmds = parse_lint_cmds(args.lint_cmd, io)
     if lint_cmds is None:
         return 1
 
     if args.show_model_warnings:
-        models.sanity_check_models(io, main_model)
+        problem = models.sanity_check_models(io, main_model)
+        if problem:
+            io.tool_output("You can skip this sanity check with --no-show-model-warnings")
+            try:
+                if not io.confirm_ask("Proceed anyway?"):
+                    return 1
+            except KeyboardInterrupt:
+                return 1
 
     repo = None
     if args.git:
@@ -478,12 +495,18 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         except FileNotFoundError:
             pass
 
-    commands = Commands(io, None, verify_ssl=args.verify_ssl)
+    if not sanity_check_repo(repo, io):
+        return 1
+
+    commands = Commands(io, None, verify_ssl=args.verify_ssl, args=args, parser=parser)
 
     summarizer = ChatSummary(
         [main_model.weak_model, main_model],
         args.max_chat_history_tokens or main_model.max_chat_history_tokens,
     )
+
+    if args.cache_prompts and args.map_refresh == "auto":
+        args.map_refresh = "files"
 
     try:
         coder = Coder.create(
@@ -510,6 +533,11 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             test_cmd=args.test_cmd,
             commands=commands,
             summarizer=summarizer,
+            map_refresh=args.map_refresh,
+            cache_prompts=args.cache_prompts,
+            map_mul_no_files=args.map_multiplier_no_files,
+            num_cache_warming_pings=args.cache_keepalive_pings,
+            suggest_shell_commands=args.suggest_shell_commands,
         )
 
     except ValueError as err:
@@ -519,13 +547,14 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if return_coder:
         return coder
 
+    io.tool_output()
     coder.show_announcements()
 
     if args.show_prompts:
         coder.cur_messages += [
             dict(role="user", content="Hello!"),
         ]
-        messages = coder.format_messages()
+        messages = coder.format_messages().all_messages()
         utils.show_messages(messages)
         return
 
@@ -581,7 +610,10 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if args.message:
         io.add_to_input_history(args.message)
         io.tool_output()
-        coder.run(with_message=args.message)
+        try:
+            coder.run(with_message=args.message)
+        except SwitchCoder:
+            pass
         return
 
     if args.message_file:
