@@ -8,7 +8,6 @@ from pathlib import Path
 import git
 
 from papertlab.dump import dump  # noqa: F401
-from papertlab.run_cmd import run_cmd
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp"}
 
@@ -437,12 +436,3 @@ def get_available_models():
         ])
     return models
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        command = " ".join(sys.argv[1:])
-        exit_status, output = run_cmd(command)
-        dump(exit_status)
-        dump(output)
-    else:
-        print("Usage: python -m papertlab.utils <command>")
-        sys.exit(1)
