@@ -9,6 +9,7 @@ PAPERTLAB_APP_NAME = "papertlab"
 
 os.environ["OR_SITE_URL"] = PAPERTLAB_SITE_URL
 os.environ["OR_APP_NAME"] = PAPERTLAB_APP_NAME
+os.environ["LITELLM_MODE"] = "PRODUCTION"
 
 # `import litellm` takes 1.5 seconds, defer it!
 
