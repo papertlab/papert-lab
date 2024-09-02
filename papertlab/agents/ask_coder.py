@@ -1,4 +1,4 @@
-from .ask_prompts import AskPrompts
+from .prompts.ask_prompts import AskPrompts
 from .base_coder import Coder
 
 

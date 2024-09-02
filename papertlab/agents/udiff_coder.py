@@ -11,7 +11,7 @@ from .search_replace import (
     flexible_search_and_replace,
     search_and_replace,
 )
-from .udiff_prompts import UnifiedDiffPrompts
+from .prompts.udiff_prompts import UnifiedDiffPrompts
 
 no_match_error = """UnifiedDiffNoMatch: hunk failed to apply!
 

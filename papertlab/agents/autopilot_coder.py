@@ -1,5 +1,5 @@
 from .base_coder import Coder
-from .autopilot_prompts import AutopilotPrompts
+from .prompts.autopilot_prompts import AutopilotPrompts
 
 class AutopilotCoder(Coder):
     """A coder that automates the process of generating, running, and debugging code."""

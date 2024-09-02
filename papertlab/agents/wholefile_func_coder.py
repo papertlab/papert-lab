@@ -2,7 +2,7 @@ from papertlab import diffs
 
 from ..dump import dump  # noqa: F401
 from .base_coder import Coder
-from .wholefile_func_prompts import WholeFileFunctionPrompts
+from .prompts.wholefile_func_prompts import WholeFileFunctionPrompts
 
 
 class WholeFileFunctionCoder(Coder):
